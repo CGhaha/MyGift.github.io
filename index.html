@@ -188,6 +188,7 @@
         .vip-plan .plan-price { color: var(--primary); font-weight: 700; }
         .vip-plan .btn-buy { width: auto; padding: 6px 20px; font-size: 14px; }
         .page-content { padding-bottom: 20px; }
+        .mt-16 { margin-top: 16px; }
     </style>
 </head>
 <body>
@@ -288,9 +289,11 @@
                     </div>
                     <p style="font-size:12px;color:var(--text-secondary);margin-top:8px;">支付方式：支付宝 / 微信（暂为占位）</p>
                 </div>
+                <!-- ===== 退出按钮仅在此处保留 ===== -->
+                <button class="btn btn-outline mt-16" onclick="logout()">退出登录</button>
             </div>
         </div>
-        <button class="btn btn-outline" style="margin-top:8px;" onclick="logout()">退出登录</button>
+        <!-- 原全局退出按钮已移除 -->
     </div>
 
     <!-- 聊天页 -->
@@ -743,17 +746,12 @@ function startPolling() {
             });
             const box = document.getElementById('chat-box-join');
             if (res.result && res.result.data) {
-                // 获取当前非系统消息数量（不包括系统消息和初始消息）
                 const currentNonSystem = box.querySelectorAll('.msg:not(.system)').length;
                 const newNonSystem = res.result.data.length;
-                // 如果数量变化，重新绘制整个聊天（确保标记不重复）
                 if (newNonSystem !== currentNonSystem) {
-                    // 完全基于数据重建
                     box.innerHTML = '';
-                    // 添加系统消息和初始消息（使用原始数据）
                     addMsg('system', '🏔️ 来自 "' + currentRoom.creatorName + '" 的回声：');
                     addMsg('other', currentRoom.initialMessage || '（空）');
-                    // 添加所有消息
                     res.result.data.forEach(m => {
                         const type = m.senderType === 'guest' ? 'mine' : 'other';
                         addMsg(type, m.content);
