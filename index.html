@@ -77,11 +77,23 @@
         .room-item {
             display: flex; justify-content: space-between;
             padding: 16px 0; border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background 0.15s;
+            border-radius: 8px;
+            padding-left: 8px;
+            padding-right: 8px;
         }
+        .room-item:hover { background: var(--primary-light); }
+        .room-item:active { background: #DDE3F2; }
         .room-passcode {
             font-family: monospace; background: var(--primary-light);
             color: var(--primary); padding: 4px 10px;
             border-radius: 20px; font-size: 13px;
+            white-space: nowrap;
+        }
+        .room-status {
+            font-size: 13px;
+            color: var(--text-secondary);
         }
         .chat-box { max-height: 350px; overflow-y: auto; }
         .msg {
@@ -136,7 +148,10 @@
             <p style="color:var(--text-secondary);">对方将收到短信，内含回音口令</p>
             <div style="background:var(--primary-light);padding:12px;border-radius:12px;font-size:22px;color:var(--primary);font-weight:600; margin-top:10px;" id="result-passcode"></div>
         </div>
-        <div class="card"><h3 style="margin-bottom:8px;">📂 我发出的回声</h3><div id="room-list">加载中...</div></div>
+        <div class="card">
+            <h3 style="margin-bottom:8px;">📂 我发出的回声</h3>
+            <div id="room-list">加载中...</div>
+        </div>
 
         <!-- 新增：倾听回声卡片 -->
         <div class="card">
@@ -343,6 +358,7 @@ async function createRoom() {
     finally { btn.disabled = false; btn.textContent = '📡 发出回声'; }
 }
 
+// ================= 加载我发出的回声列表（点击可进入聊天） =================
 async function loadMyRooms() {
     if (!currentUser) return;
     try {
@@ -355,37 +371,37 @@ async function loadMyRooms() {
             list.innerHTML = '<p style="color:var(--text-secondary);text-align:center;">暂无回声</p>';
             return;
         }
+        // 每个条目可点击，点击后自动跳转聊天
         list.innerHTML = res.result.data.map(r => {
-            return `<div class="room-item"><div><strong>${r.targetPhone}</strong><span style="color:var(--text-secondary);font-size:13px;"> · ${r.status==='replied'?'🟢已回复':'⏳等待中'}</span></div><span class="room-passcode">${r.passcode}</span></div>`;
+            const statusText = r.status === 'replied' ? '🟢 已回复' : '⏳ 等待中';
+            return `<div class="room-item" onclick="enterRoomFromList('${r.passcode}')">
+                <div>
+                    <strong>${r.targetPhone}</strong>
+                    <span class="room-status"> · ${statusText}</span>
+                    <div style="font-size:13px;color:var(--text-secondary);margin-top:2px;">${r.initialMessage ? r.initialMessage.substring(0, 20) + (r.initialMessage.length > 20 ? '...' : '') : ''}</div>
+                </div>
+                <span class="room-passcode">${r.passcode}</span>
+            </div>`;
         }).join('');
     } catch (e) {
         console.error("加载列表失败:", e);
+        document.getElementById('room-list').innerHTML = '<p style="color:var(--danger);text-align:center;">加载失败，请刷新</p>';
     }
 }
 
-// ================= 加入房间 =================
-async function joinRoom() {
-    const pc = document.getElementById('join-passcode').value.trim();
-    if (!pc) return;
-    try {
-        const res = await app.callFunction({
-            name: 'dbApi',
-            data: { action: 'query', collection: 'rooms', filter: { passcode: pc }, limit: 1 }
-        });
-        if (!res.result || !res.result.data || res.result.data.length === 0) {
-            document.getElementById('join-error').textContent = '口令错误';
-            return;
-        }
-        currentRoom = res.result.data[0];
-        document.getElementById('page-join').querySelector('.card').classList.add('hidden');
-        document.getElementById('chat-join').classList.remove('hidden');
-        const box = document.getElementById('chat-box-join'); box.innerHTML = '';
-        addMsg('system', '"' + currentRoom.creatorName + '" 的回声：');
-        addMsg('other', currentRoom.initialMessage);
-        startPolling();
-    } catch(e) {
-        document.getElementById('join-error').textContent = '查询出错: ' + e.message;
-    }
+// ================= 从列表点击进入聊天 =================
+function enterRoomFromList(passcode) {
+    showPage('page-join');
+    document.getElementById('join-passcode').value = passcode;
+    document.getElementById('join-error').textContent = '';
+    // 清空旧聊天内容
+    document.getElementById('chat-box-join').innerHTML = '';
+    // 隐藏旧聊天卡片（如果显示着）
+    document.getElementById('chat-join').classList.add('hidden');
+    // 显示输入口令卡片
+    document.getElementById('page-join').querySelector('.card.text-center').classList.remove('hidden');
+    // 自动加入
+    joinRoom();
 }
 
 // ================= 从主页面快速加入 =================
@@ -397,7 +413,55 @@ function enterRoomFromMain() {
     }
     showPage('page-join');
     document.getElementById('join-passcode').value = code;
+    document.getElementById('join-error').textContent = '';
+    document.getElementById('chat-box-join').innerHTML = '';
+    document.getElementById('chat-join').classList.add('hidden');
+    document.getElementById('page-join').querySelector('.card.text-center').classList.remove('hidden');
     joinRoom();
+}
+
+// ================= 加入房间 =================
+async function joinRoom() {
+    const pc = document.getElementById('join-passcode').value.trim();
+    if (!pc) {
+        document.getElementById('join-error').textContent = '请输入口令';
+        return;
+    }
+    // 清除旧错误
+    document.getElementById('join-error').textContent = '';
+    try {
+        const res = await app.callFunction({
+            name: 'dbApi',
+            data: { action: 'query', collection: 'rooms', filter: { passcode: pc }, limit: 1 }
+        });
+        if (!res.result || !res.result.data || res.result.data.length === 0) {
+            document.getElementById('join-error').textContent = '❌ 口令错误，请检查';
+            return;
+        }
+        currentRoom = res.result.data[0];
+        // 隐藏口令输入卡片，显示聊天卡片
+        document.getElementById('page-join').querySelector('.card.text-center').classList.add('hidden');
+        document.getElementById('chat-join').classList.remove('hidden');
+        const box = document.getElementById('chat-box-join'); 
+        box.innerHTML = '';
+        addMsg('system', '🏔️ 来自 "' + currentRoom.creatorName + '" 的回声：');
+        addMsg('other', currentRoom.initialMessage || '（空）');
+        // 加载已有消息
+        try {
+            const msgRes = await app.callFunction({
+                name: 'dbApi',
+                data: { action: 'query', collection: 'messages', filter: { roomId: currentRoom._id }, order: ['createdAt','asc'], limit: 30 }
+            });
+            if (msgRes.result && msgRes.result.data) {
+                msgRes.result.data.forEach(m => {
+                    addMsg(m.senderType === 'guest' ? 'mine' : 'other', m.content);
+                });
+            }
+        } catch(e) { console.error("加载消息失败:", e); }
+        startPolling();
+    } catch(e) {
+        document.getElementById('join-error').textContent = '查询出错: ' + e.message;
+    }
 }
 
 // ================= 聊天消息相关 =================
@@ -411,7 +475,7 @@ function addMsg(type, text) {
 }
 
 async function sendJoinMsg() {
-    if (!currentRoom) return;
+    if (!currentRoom) return alert('请先进入一个回声');
     const text = document.getElementById('join-message').value.trim();
     if (!text) return;
     try {
@@ -421,10 +485,15 @@ async function sendJoinMsg() {
         });
         addMsg('mine', text);
         document.getElementById('join-message').value = '';
+        // 更新房间状态为已回复
         await app.callFunction({
             name: 'dbApi',
             data: { action: 'update', collection: 'rooms', filter: { _id: currentRoom._id }, data: { status: 'replied' } }
         });
+        // 刷新列表（如果主页面正在显示）
+        if (document.getElementById('page-main').classList.contains('hidden') === false) {
+            loadMyRooms();
+        }
     } catch(e) {
         alert("发送失败: " + e.message);
     }
@@ -440,19 +509,40 @@ function startPolling() {
                 name: 'dbApi',
                 data: { action: 'query', collection: 'messages', filter: { roomId: currentRoom._id }, order: ['createdAt','asc'], limit: 30 }
             });
-            const box = document.getElementById('chat-box-join'); 
-            box.innerHTML = '';
-            addMsg('system', '"' + currentRoom.creatorName + '" 的回声：');
-            addMsg('other', currentRoom.initialMessage);
-            
+            // 只更新，不重建（防止闪烁）
+            const box = document.getElementById('chat-box-join');
+            // 简单判断：如果消息数量变化，重新渲染
             if (res.result && res.result.data) {
-                res.result.data.forEach(m => addMsg(m.senderType==='guest'?'mine':'other', m.content));
+                // 获取当前已有消息数量
+                const currentMsgs = box.querySelectorAll('.msg:not(.system)').length;
+                const newMsgs = res.result.data.length;
+                if (newMsgs !== currentMsgs) {
+                    // 重新渲染
+                    const systemMsg = box.querySelector('.msg.system');
+                    const otherMsg = box.querySelector('.msg.other');
+                    const systemText = systemMsg ? systemMsg.textContent : '🏔️ 来自 "' + currentRoom.creatorName + '" 的回声：';
+                    const otherText = otherMsg ? otherMsg.textContent : currentRoom.initialMessage;
+                    box.innerHTML = '';
+                    addMsg('system', systemText);
+                    addMsg('other', otherText);
+                    res.result.data.forEach(m => {
+                        addMsg(m.senderType === 'guest' ? 'mine' : 'other', m.content);
+                    });
+                }
             }
         } catch(e) {
             console.error("拉取新消息失败:", e);
         }
     }, 3000);
 }
+
+// 页面可见性变化时清理轮询
+document.addEventListener('visibilitychange', function() {
+    if (document.hidden && pollingInterval) {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+    }
+});
 </script>
 </body>
 </html>
