@@ -109,19 +109,19 @@
             display: inline-block;
             position: relative;
         }
-        /* 自己的消息在左边（左浮动） */
+        /* 自己的消息在右侧（右浮动） */
         .msg.mine {
-            float: left;
-            background: var(--bg);
-            color: var(--text);
-            border-bottom-left-radius: 4px;
-        }
-        /* 对方的消息在右边（右浮动） */
-        .msg.other {
             float: right;
             background: var(--primary);
             color: white;
             border-bottom-right-radius: 4px;
+        }
+        /* 对方的消息在左侧（左浮动） */
+        .msg.other {
+            float: left;
+            background: var(--bg);
+            color: var(--text);
+            border-bottom-left-radius: 4px;
         }
         .msg.system {
             text-align: center;
@@ -139,10 +139,10 @@
             margin-left: 8px;
             display: inline-block;
         }
-        .msg.other .read-status {
+        .msg.mine .read-status {
             color: rgba(255,255,255,0.8);
         }
-        .msg.mine .read-status {
+        .msg.other .read-status {
             color: var(--text-secondary);
         }
 
@@ -212,7 +212,7 @@
 </head>
 <body>
 <div class="app-container">
-    <!-- 认证页 (登录/注册) -->
+    <!-- 认证页 -->
     <div id="page-auth">
         <div class="card text-center" style="padding:32px 24px;">
             <h1 class="brand-title">回声</h1>
@@ -235,14 +235,13 @@
         <div class="download-bar"><div><strong>📱 回声 App</strong><span style="font-size:13px;opacity:0.9;">更快更稳定</span></div><a href="#">下载</a></div>
     </div>
 
-    <!-- 主应用 (首页/消息/我的) -->
+    <!-- 主应用 -->
     <div id="page-main" class="hidden">
         <div class="download-bar"><div><strong>📱 回声 App</strong><span style="font-size:13px;opacity:0.9;">更快更稳定</span></div><a href="#">下载</a></div>
         
         <div class="page-content">
             <!-- 首页 -->
             <div id="tab-home" class="tab-page">
-                <!-- 倾听回声 -->
                 <div class="card">
                     <h3 style="margin-bottom:8px;">🔑 倾听回声</h3>
                     <p style="color:var(--text-secondary);font-size:14px;margin-bottom:12px;">输入回音口令，进入对话</p>
@@ -253,7 +252,6 @@
                     <button class="btn btn-primary" onclick="enterRoomFromHome()">侧耳倾听</button>
                 </div>
 
-                <!-- 喊出你的话 -->
                 <div class="card">
                     <h3 style="margin-bottom:12px;">📡 喊出你的话</h3>
                     <div class="input-group"><span class="icon">📞</span><input id="target-phone" placeholder="对方手机号"></div>
@@ -320,7 +318,7 @@
         <button class="btn btn-outline" style="margin-top:8px;" onclick="logout()">退出登录</button>
     </div>
 
-    <!-- 聊天页 (独立) -->
+    <!-- 聊天页 -->
     <div id="page-join" class="hidden">
         <div class="download-bar"><div><strong>📱 回声 App</strong><span style="font-size:13px;opacity:0.9;">更快更稳定</span></div><a href="#">下载</a></div>
         <div class="card text-center">
@@ -716,7 +714,6 @@ async function joinRoom() {
             });
             if (msgRes.result && msgRes.result.data) {
                 msgRes.result.data.forEach(m => {
-                    // 根据发送者类型决定显示样式：guest 表示当前用户（自己），其他为对方
                     const type = m.senderType === 'guest' ? 'mine' : 'other';
                     addMsg(type, m.content);
                 });
@@ -733,8 +730,7 @@ function addMsg(type, text) {
     const box = document.getElementById('chat-box-join');
     const div = document.createElement('div');
     div.className = 'msg ' + type;
-    // 消息文本 + 已读标记（占位）
-    const readMark = ' ✓';  // 模拟已读
+    const readMark = ' ✓';
     div.innerHTML = `<span>${text}</span><span class="read-status">${readMark}</span>`;
     box.appendChild(div);
     box.scrollTop = box.scrollHeight;
@@ -749,7 +745,7 @@ async function sendJoinMsg() {
             name: 'dbApi',
             data: { action: 'add', collection: 'messages', data: { roomId: currentRoom._id, senderType: 'guest', senderName: '匿名', content: text, createdAt: Date.now() } }
         });
-        addMsg('mine', text);  // 自己的消息在左边
+        addMsg('mine', text);
         document.getElementById('join-message').value = '';
         await app.callFunction({
             name: 'dbApi',
@@ -782,7 +778,6 @@ function startPolling() {
             if (res.result && res.result.data) {
                 const currentMsgs = box.querySelectorAll('.msg:not(.system)').length;
                 if (res.result.data.length !== currentMsgs) {
-                    // 重新绘制
                     const systemMsg = box.querySelector('.msg.system');
                     const otherMsg = box.querySelector('.msg.other');
                     const systemText = systemMsg ? systemMsg.textContent : '🏔️ 来自 "' + currentRoom.creatorName + '" 的回声：';
