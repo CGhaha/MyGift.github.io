@@ -109,14 +109,12 @@
             display: inline-block;
             position: relative;
         }
-        /* 自己的消息在右侧（右浮动） */
         .msg.mine {
             float: right;
             background: var(--primary);
             color: white;
             border-bottom-right-radius: 4px;
         }
-        /* 对方的消息在左侧（左浮动） */
         .msg.other {
             float: left;
             background: var(--bg);
@@ -132,7 +130,6 @@
             background: transparent;
             padding: 6px 0;
         }
-        /* 底部导航 */
         .bottom-nav {
             position: fixed;
             bottom: 0;
@@ -346,7 +343,6 @@ let isVIP = false;
 let vipExpire = 0;
 let todaySendCount = 0;
 
-// ================= 程序入口 =================
 window.onload = function() {
     if (typeof cloudbase === 'undefined') {
         document.body.innerHTML = '<div style="text-align:center;padding:40px;color:red;"><h3>SDK加载失败！</h3><p>请确保 <b>cloudbase.full.3.6.2.js</b> 文件与本 HTML 文件在同一目录下并正确上传。</p></div>';
@@ -398,7 +394,6 @@ function switchTab(t) {
     document.getElementById('form-register').classList.toggle('hidden', t!=='register');
 }
 
-// ================= 主标签切换 =================
 function switchMainTab(tab) {
     document.querySelectorAll('.tab-page').forEach(el => el.classList.add('hidden'));
     document.getElementById('tab-' + tab).classList.remove('hidden');
@@ -408,7 +403,6 @@ function switchMainTab(tab) {
     if (tab === 'profile') loadUserInfo();
 }
 
-// ================= 登录 / 注册 =================
 async function handleLogin() {
     const phone = document.getElementById('login-phone').value.trim();
     const pw = document.getElementById('login-password').value.trim();
@@ -469,7 +463,6 @@ function logout() {
     if (pollingInterval) clearInterval(pollingInterval);
 }
 
-// ================= 用户信息 & VIP =================
 async function loadUserInfo() {
     if (!currentUser) return;
     try {
@@ -513,7 +506,6 @@ function updateSendInfo() {
     }
 }
 
-// ================= 修改密码 =================
 async function changePassword() {
     if (!currentUser) return alert('请先登录');
     const old = document.getElementById('old-password').value.trim();
@@ -537,7 +529,6 @@ async function changePassword() {
     } catch(e) { alert('修改失败: ' + e.message); }
 }
 
-// ================= VIP 购买 (占位) =================
 function buyVIP(days, price) {
     if (!currentUser) return alert('请先登录');
     alert('💳 即将跳转支付：' + price + ' 元，开通 ' + days + ' 天 VIP\n支付方式：支付宝 / 微信（占位）');
@@ -551,7 +542,6 @@ function buyVIP(days, price) {
     }).catch(e => alert('开通失败: ' + e.message));
 }
 
-// ================= 创建回声 =================
 async function createRoom() {
     if (!currentUser) return alert('请先登录');
     const phone = document.getElementById('target-phone').value.trim();
@@ -610,7 +600,6 @@ async function createRoom() {
     finally { btn.disabled = false; btn.textContent = '📡 发出回声'; }
 }
 
-// ================= 加载消息列表 =================
 async function loadMyRooms() {
     if (!currentUser) return;
     try {
@@ -640,7 +629,6 @@ async function loadMyRooms() {
     }
 }
 
-// ================= 进入聊天 =================
 function enterRoomFromList(passcode) {
     showPage('page-join');
     document.getElementById('join-passcode').value = passcode;
@@ -663,7 +651,6 @@ function enterRoomFromHome() {
     joinRoom();
 }
 
-// ================= 加入房间 =================
 async function joinRoom() {
     const pc = document.getElementById('join-passcode').value.trim();
     if (!pc) { document.getElementById('join-error').textContent = '请输入口令'; return; }
@@ -684,7 +671,6 @@ async function joinRoom() {
         box.innerHTML = '';
         addMsg('system', '🏔️ 来自 "' + currentRoom.creatorName + '" 的回声：');
         addMsg('other', currentRoom.initialMessage || '（空）');
-        // 加载已有消息
         try {
             const msgRes = await app.callFunction({
                 name: 'dbApi',
@@ -703,20 +689,16 @@ async function joinRoom() {
     }
 }
 
-// ================= 聊天消息（带已读标记） =================
 function addMsg(type, text) {
     const box = document.getElementById('chat-box-join');
     const div = document.createElement('div');
     div.className = 'msg ' + type;
     let markHtml = '';
     if (type === 'mine') {
-        // 自己的消息：一个灰色对号（发送成功）
         markHtml = '<span style="color:#aaa;font-size:12px;margin-left:6px;">✓</span>';
     } else if (type === 'other') {
-        // 对方的消息：两个绿色对号（已读）
         markHtml = '<span style="color:#4CAF50;font-size:12px;margin-left:6px;">✓✓</span>';
     }
-    // system 类型不添加标记
     div.innerHTML = `<span>${text}</span>${markHtml}`;
     box.appendChild(div);
     box.scrollTop = box.scrollHeight;
@@ -750,7 +732,6 @@ function leaveChat() {
     switchMainTab('messages');
 }
 
-// ================= 轮询 =================
 function startPolling() {
     if (pollingInterval) clearInterval(pollingInterval);
     pollingInterval = setInterval(async () => {
@@ -762,15 +743,17 @@ function startPolling() {
             });
             const box = document.getElementById('chat-box-join');
             if (res.result && res.result.data) {
-                const currentMsgs = box.querySelectorAll('.msg:not(.system)').length;
-                if (res.result.data.length !== currentMsgs) {
-                    const systemMsg = box.querySelector('.msg.system');
-                    const otherMsg = box.querySelector('.msg.other');
-                    const systemText = systemMsg ? systemMsg.textContent : '🏔️ 来自 "' + currentRoom.creatorName + '" 的回声：';
-                    const otherText = otherMsg ? otherMsg.textContent : currentRoom.initialMessage;
+                // 获取当前非系统消息数量（不包括系统消息和初始消息）
+                const currentNonSystem = box.querySelectorAll('.msg:not(.system)').length;
+                const newNonSystem = res.result.data.length;
+                // 如果数量变化，重新绘制整个聊天（确保标记不重复）
+                if (newNonSystem !== currentNonSystem) {
+                    // 完全基于数据重建
                     box.innerHTML = '';
-                    addMsg('system', systemText);
-                    addMsg('other', otherText);
+                    // 添加系统消息和初始消息（使用原始数据）
+                    addMsg('system', '🏔️ 来自 "' + currentRoom.creatorName + '" 的回声：');
+                    addMsg('other', currentRoom.initialMessage || '（空）');
+                    // 添加所有消息
                     res.result.data.forEach(m => {
                         const type = m.senderType === 'guest' ? 'mine' : 'other';
                         addMsg(type, m.content);
