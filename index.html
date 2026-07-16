@@ -2,236 +2,175 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>回声 Echo</title>
     <style>
-        :root {
-            --primary: #5B6ABF; --primary-light: #EEF0FA; --bg: #F4F6FB;
-            --surface: #FFFFFF; --text: #1E2746; --text-secondary: #6F7A9C;
-            --border: #E8ECF4; --danger: #E06C75;
-        }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--bg); color: var(--text);
-            min-height: 100vh; display: flex; justify-content: center;
-            padding: 16px;
-        }
-        .app-container { width: 100%; max-width: 440px; }
-        .card {
-            background: var(--surface); border-radius: 16px;
-            padding: 24px; margin-bottom: 16px;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.04);
-        }
-        .download-bar {
-            background: linear-gradient(135deg, #5B6ABF, #7B8CD6);
-            color: white; padding: 12px 16px; border-radius: 12px;
-            margin-bottom: 16px; display: flex;
-            align-items: center; justify-content: space-between;
-        }
-        .download-bar a {
-            background: white; color: #5B6ABF;
-            padding: 8px 16px; border-radius: 20px;
-            font-weight: 600; text-decoration: none; font-size: 14px;
-        }
-        .input-group { position: relative; margin-bottom: 16px; }
-        .input-group .icon {
-            position: absolute; left: 16px; top: 50%;
-            transform: translateY(-50%); font-size: 18px;
-            color: var(--text-secondary);
-        }
-        .input-group input, .input-group textarea {
-            width: 100%; padding: 14px 16px 14px 44px;
-            background: var(--bg); border: 1.5px solid transparent;
-            border-radius: 12px; font-size: 15px;
-        }
-        .input-group textarea { min-height: 100px; resize: vertical; }
-        .input-group input:focus, .input-group textarea:focus {
-            outline: none; border-color: var(--primary);
-        }
-        .btn {
-            width: 100%; padding: 14px; border: none;
-            border-radius: 50px; font-size: 16px;
-            font-weight: 600; cursor: pointer;
-        }
-        .btn-primary { background: var(--primary); color: white; }
+        body { font-family: -apple-system, sans-serif; background: #F4F6FB; padding: 16px; }
+        .container { max-width: 440px; margin: 0 auto; }
+        .card { background: #fff; border-radius: 16px; padding: 24px; margin-bottom: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.04); }
+        input, textarea { width: 100%; padding: 14px; border: 1.5px solid #E8ECF4; border-radius: 12px; font-size: 15px; margin-bottom: 12px; }
+        .btn { width: 100%; padding: 14px; background: #5B6ABF; color: #fff; border: none; border-radius: 50px; font-size: 16px; cursor: pointer; }
         .btn:disabled { opacity: 0.6; }
-        .tabs {
-            display: flex; background: var(--bg);
-            border-radius: 50px; padding: 4px; margin-bottom: 24px;
-        }
-        .tab {
-            flex: 1; text-align: center; padding: 10px;
-            border-radius: 50px; color: var(--text-secondary); cursor: pointer;
-        }
-        .tab.active {
-            background: var(--surface); color: var(--text); font-weight: 600;
-        }
-        .hidden { display: none !important; }
-        .text-center { text-align: center; }
-        .brand-title {
-            font-size: 32px; font-weight: 700;
-            color: var(--primary); letter-spacing: 4px;
-        }
-        .brand-sub { color: var(--text-secondary); margin-bottom: 24px; }
-        .room-item {
-            display: flex; justify-content: space-between;
-            padding: 16px 0; border-bottom: 1px solid var(--border);
-        }
-        .room-passcode {
-            font-family: monospace; background: var(--primary-light);
-            color: var(--primary); padding: 4px 10px;
-            border-radius: 20px; font-size: 13px;
-        }
-        .chat-box { max-height: 350px; overflow-y: auto; }
-        .msg {
-            max-width: 80%; margin: 12px 0; padding: 10px 16px;
-            border-radius: 18px; clear: both; word-wrap: break-word;
-        }
-        .msg.other { background: var(--bg); float: left; }
-        .msg.mine { background: var(--primary); color: white; float: right; }
-        .msg.system {
-            text-align: center; color: var(--text-secondary);
-            font-size: 13px; float: none;
-        }
+        .hidden { display: none; }
+        .tabs { display: flex; margin-bottom: 20px; }
+        .tab { flex: 1; text-align: center; padding: 10px; border-radius: 50px; cursor: pointer; background: #eee; }
+        .tab.active { background: #5B6ABF; color: #fff; }
+        .brand { font-size: 32px; font-weight: 700; color: #5B6ABF; letter-spacing: 4px; }
+        .brand-sub { color: #999; margin: 10px 0 20px; }
+        .msg { max-width: 80%; margin: 8px 0; padding: 10px 16px; border-radius: 18px; clear: both; }
+        .msg.other { background: #eee; float: left; }
+        .msg.mine { background: #5B6ABF; color: #fff; float: right; }
+        .msg.system { text-align: center; color: #999; font-size: 13px; float: none; }
+        .chat-box { max-height: 300px; overflow-y: auto; margin-bottom: 12px; }
     </style>
 </head>
 <body>
-<div class="app-container">
+<div class="container">
+    <!-- 登录注册页 -->
     <div id="page-auth">
-        <div class="card text-center" style="padding:32px 24px;">
-            <h1 class="brand-title">回声</h1>
-            <span class="brand-sub">有些话，山谷会替你记得</span>
+        <div class="card" style="text-align:center;">
+            <h1 class="brand">回声</h1>
+            <p class="brand-sub">有些话，山谷会替你记得</p>
             <div class="tabs">
-                <div id="tab-login" class="tab active" onclick="switchTab('login')">登录</div>
-                <div id="tab-register" class="tab" onclick="switchTab('register')">注册</div>
+                <div class="tab active" onclick="switchTab('login')">登录</div>
+                <div class="tab" onclick="switchTab('register')">注册</div>
             </div>
             <div id="form-login">
-                <div class="input-group"><span class="icon">📱</span><input id="login-phone" placeholder="手机号"></div>
-                <div class="input-group"><span class="icon">🔒</span><input type="password" id="login-password" placeholder="密码"></div>
-                <button class="btn btn-primary" onclick="handleLogin()">进入回声</button>
+                <input id="login-phone" placeholder="手机号">
+                <input type="password" id="login-password" placeholder="密码">
+                <button class="btn" onclick="handleLogin()">进入回声</button>
             </div>
             <div id="form-register" class="hidden">
-                <div class="input-group"><span class="icon">📱</span><input id="reg-phone" placeholder="手机号"></div>
-                <div class="input-group"><span class="icon">🔒</span><input type="password" id="reg-password" placeholder="密码(6位以上)"></div>
-                <button class="btn btn-primary" onclick="handleRegister()">创建账号</button>
+                <input id="reg-phone" placeholder="手机号">
+                <input type="password" id="reg-password" placeholder="密码(6位以上)">
+                <button class="btn" onclick="handleRegister()">创建账号</button>
             </div>
         </div>
-        <div class="download-bar"><div><strong>📱 回声 App</strong><span style="font-size:13px;opacity:0.9;">更快更稳定</span></div><a href="#">下载</a></div>
     </div>
 
+    <!-- 主界面 -->
     <div id="page-main" class="hidden">
-        <div class="download-bar"><div><strong>📱 回声 App</strong><span style="font-size:13px;opacity:0.9;">更快更稳定</span></div><a href="#">下载</a></div>
-        <div style="text-align:center;color:var(--text-secondary);margin-bottom:8px;">声音已发出，正在等待回声...</div>
         <div class="card">
             <h3 style="margin-bottom:12px;">📡 喊出你的话</h3>
-            <div class="input-group"><span class="icon">📞</span><input id="target-phone" placeholder="对方手机号"></div>
-            <div class="input-group"><span class="icon">👤</span><input id="your-name" placeholder="你的名字"></div>
-            <div class="input-group"><span class="icon">💬</span><textarea id="message-content" placeholder="你想说的话..."></textarea></div>
-            <button class="btn btn-primary" id="send-btn" onclick="createRoom()">📡 发出回声</button>
+            <input id="target-phone" placeholder="对方手机号">
+            <input id="your-name" placeholder="你的名字">
+            <textarea id="message-content" placeholder="你想说的话..." style="height:80px;resize:vertical;"></textarea>
+            <button class="btn" id="send-btn" onclick="createRoom()">📡 发出回声</button>
         </div>
-        <div id="result-card" class="card hidden text-center">
-            <span style="font-size:40px;">✅</span>
-            <h3>回声已发出</h3>
-            <p style="color:var(--text-secondary);">对方将收到短信，内含回音口令</p>
-            <div style="background:var(--primary-light);padding:12px;border-radius:12px;font-size:22px;color:var(--primary);font-weight:600;" id="result-passcode"></div>
+        <div id="result-card" class="card hidden" style="text-align:center;">
+            <h2>✅ 回声已发出</h2>
+            <p style="color:#999;">复制短信内容，手动发送给对方</p>
+            <div id="result-sms" style="background:#EEF0FA;padding:12px;border-radius:12px;margin:10px 0;word-break:break-all;text-align:left;"></div>
+            <button class="btn" onclick="copySms()">📋 复制短信内容</button>
         </div>
-        <div class="card"><h3 style="margin-bottom:8px;">📂 我发出的回声</h3><div id="room-list">加载中...</div></div>
-        <button class="btn" style="background:transparent;color:var(--primary);border:1.5px solid var(--primary);margin-top:16px;" onclick="logout()">退出</button>
+        <button class="btn" style="background:#fff;color:#5B6ABF;border:1.5px solid #5B6ABF;margin-top:10px;" onclick="logout()">退出</button>
     </div>
 
+    <!-- 接收者页面 -->
     <div id="page-join" class="hidden">
-        <div class="download-bar"><div><strong>📱 回声 App</strong><span style="font-size:13px;opacity:0.9;">更快更稳定</span></div><a href="#">下载</a></div>
-        <div class="card text-center">
-            <span style="font-size:40px;">🏔️</span>
-            <h2>听到一声回声...</h2>
-            <p style="color:var(--text-secondary);margin-bottom:20px;">输入回音口令倾听</p>
-            <div class="input-group"><span class="icon">🔑</span><input id="join-passcode" placeholder="例如：空谷-悠长的-901"></div>
-            <button class="btn btn-primary" onclick="joinRoom()">侧耳倾听</button>
-            <p id="join-error" style="color:var(--danger);margin-top:8px;"></p>
+        <div class="card" style="text-align:center;">
+            <h2>🏔️ 听到一声回声...</h2>
+            <p style="color:#999;margin-bottom:16px;">输入回音口令倾听</p>
+            <input id="join-passcode" placeholder="例如：空谷-悠长的-901">
+            <button class="btn" onclick="joinRoom()">侧耳倾听</button>
+            <p id="join-error" style="color:red;margin-top:8px;"></p>
         </div>
         <div id="chat-join" class="card hidden">
-            <div class="chat-box" id="chat-box-join"></div>
-            <div style="display:flex;gap:8px;margin-top:12px;">
-                <input id="join-message" placeholder="你的回应..." style="flex:1;padding:12px;border-radius:50px;border:1px solid var(--border);">
-                <button class="btn btn-primary" style="width:auto;padding:12px 24px;" onclick="sendJoinMsg()">发送</button>
+            <div class="chat-box" id="chat-box"></div>
+            <div style="display:flex;gap:8px;">
+                <input id="join-message" placeholder="你的回应..." style="flex:1;">
+                <button class="btn" style="width:auto;" onclick="sendJoinMsg()">发送</button>
             </div>
         </div>
     </div>
 </div>
 
-<script src="cloudbase.full.3.6.2.js"></script>
 <script>
+// ========== 配置 ==========
 const ENV_ID = 'echo-d1ggxqxb47c1224f7';
-let app, auth, db;
-let currentUser = null, currentRoom = null, pollingInterval = null;
+const API_BASE = `https://${ENV_ID}.service.tcloudbase.com`;
 
-window.onload = function() {
-    if (typeof cloudbase === 'undefined') {
-        document.body.innerHTML = '<div style="text-align:center;padding:40px;">SDK加载失败，请确保 cloudbase.full.3.6.2.js 和本文件在同一文件夹</div>';
-        return;
-    }
-    app = cloudbase.init({ env: ENV_ID });
-    auth = app.auth();
-    db = app.database();
+let accessToken = null;
+let currentUser = null;
+let currentRoom = null;
+let pollingInterval = null;
 
-    const user = auth.currentUser;
-    if (user) {
-        currentUser = user;
-        showPage('page-main');
-        loadMyRooms();
-    } else {
-        showPage('page-auth');
-    }
-};
-
+// ========== 页面切换 ==========
 function showPage(id) {
-    document.querySelectorAll('[id^="page-"]').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('#page-auth,#page-main,#page-join').forEach(el => el.classList.add('hidden'));
     document.getElementById(id).classList.remove('hidden');
 }
-
 function switchTab(t) {
-    document.getElementById('tab-login').classList.toggle('active', t==='login');
-    document.getElementById('tab-register').classList.toggle('active', t==='register');
+    document.querySelectorAll('.tab')[0].classList.toggle('active', t==='login');
+    document.querySelectorAll('.tab')[1].classList.toggle('active', t==='register');
     document.getElementById('form-login').classList.toggle('hidden', t!=='login');
     document.getElementById('form-register').classList.toggle('hidden', t!=='register');
 }
 
+// ========== HTTP 请求封装 ==========
+async function api(method, path, body) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+    const res = await fetch(`${API_BASE}${path}`, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : undefined
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || '请求失败');
+    return data;
+}
+
+// ========== 登录 ==========
 async function handleLogin() {
     const phone = document.getElementById('login-phone').value.trim();
     const pw = document.getElementById('login-password').value.trim();
     if (!phone || !pw) return alert('请输入手机号和密码');
     try {
-        await auth.signInWithUsernameAndPassword(phone, pw);
-        currentUser = auth.currentUser;
-        afterLogin();
-    } catch(e) { alert('登录失败: ' + e.message); }
+        const result = await api('POST', '/auth/v1/signin', {
+            username: phone,
+            password: pw
+        });
+        accessToken = result.access_token;
+        currentUser = { uid: result.sub, username: phone };
+        showPage('page-main');
+    } catch(e) {
+        alert('登录失败: ' + e.message);
+    }
 }
 
+// ========== 注册 ==========
 async function handleRegister() {
     const phone = document.getElementById('reg-phone').value.trim();
     const pw = document.getElementById('reg-password').value.trim();
     if (!phone || pw.length < 6) return alert('密码至少6位');
     try {
-        await auth.signUpWithUsernameAndPassword(phone, pw);
-        await auth.signInWithUsernameAndPassword(phone, pw);
-        currentUser = auth.currentUser;
-        afterLogin();
-    } catch(e) { alert('注册失败: ' + e.message); }
-}
-
-function afterLogin() {
-    showPage('page-main');
-    loadMyRooms();
+        await api('POST', '/auth/v1/signup', {
+            username: phone,
+            password: pw
+        });
+        // 注册成功后自动登录
+        const result = await api('POST', '/auth/v1/signin', {
+            username: phone,
+            password: pw
+        });
+        accessToken = result.access_token;
+        currentUser = { uid: result.sub, username: phone };
+        showPage('page-main');
+    } catch(e) {
+        alert('注册失败: ' + e.message);
+    }
 }
 
 function logout() {
-    auth.signOut();
+    accessToken = null;
     currentUser = null;
     showPage('page-auth');
 }
 
-async function createRoom() {
+// ========== 生成回声 ==========
+function createRoom() {
     if (!currentUser) return alert('请先登录');
     const phone = document.getElementById('target-phone').value.trim();
     const name = document.getElementById('your-name').value.trim();
@@ -240,65 +179,48 @@ async function createRoom() {
 
     const nouns = ['空谷','松涛','晚钟','风铃','潮汐','山泉','竹林','夜莺','鲸歌','风笛'];
     const adjs = ['悠长的','遥远的','轻柔的','清澈的','温暖的','寂静的','微弱的','坚定的'];
-    const passcode = nouns[Math.floor(Math.random()*10)] + '-' + adjs[Math.floor(Math.random()*8)] + '-' + Math.floor(Math.random()*900+100);
-    const smsText = name + ' 给你留下一声回声："' + content + '"。倾听请至 ' + window.location.origin + window.location.pathname + ' ，回音口令：' + passcode + ' 。退订回T';
-
-    const btn = document.getElementById('send-btn');
-    btn.disabled = true; btn.textContent = '正在排队...';
-    try {
-        await app.callFunction({
-            name: 'dbApi',
-            data: { action: 'add', collection: 'rooms', data: { passcode, creatorId: currentUser.uid, targetPhone: phone, creatorName: name, initialMessage: content, status: 'pending' } }
-        });
-        await app.callFunction({
-            name: 'dbApi',
-            data: { action: 'add', collection: 'outbox', data: { phone, text: smsText, status: 'pending' } }
-        });
-        document.getElementById('result-passcode').textContent = passcode;
-        document.getElementById('result-card').classList.remove('hidden');
-        loadMyRooms();
-    } catch(e) { alert('操作失败: ' + e.message); }
-    finally { btn.disabled = false; btn.textContent = '📡 发出回声'; }
+    const pc = nouns[Math.floor(Math.random()*10)] + '-' + adjs[Math.floor(Math.random()*8)] + '-' + Math.floor(Math.random()*900+100);
+    
+    const sms = name + ' 给你留下一声回声："' + content + '"。倾听请至 ' + window.location.href + ' ，回音口令：' + pc + ' 。退订回T';
+    
+    document.getElementById('result-sms').textContent = sms;
+    document.getElementById('result-card').classList.remove('hidden');
 }
 
-async function loadMyRooms() {
-    if (!currentUser) return;
-    const res = await app.callFunction({
-        name: 'dbApi',
-        data: { action: 'query', collection: 'rooms', filter: { creatorId: currentUser.uid }, order: ['createdAt','desc'] }
-    });
-    const list = document.getElementById('room-list');
-    if (!res.result.data || res.result.data.length === 0) {
-        list.innerHTML = '<p style="color:var(--text-secondary);text-align:center;">暂无回声</p>';
-        return;
-    }
-    list.innerHTML = res.result.data.map(r => {
-        return `<div class="room-item"><div><strong>${r.targetPhone}</strong><span style="color:var(--text-secondary);font-size:13px;"> · ${r.status==='replied'?'🟢已回复':'⏳等待中'}</span></div><span class="room-passcode">${r.passcode}</span></div>`;
-    }).join('');
+function copySms() {
+    const txt = document.getElementById('result-sms').textContent;
+    navigator.clipboard.writeText(txt).then(() => alert('已复制！打开短信粘贴发送')).catch(() => alert('复制失败，请手动复制'));
 }
 
+// ========== 接收者加入 ==========
 async function joinRoom() {
     const pc = document.getElementById('join-passcode').value.trim();
     if (!pc) return;
-    const res = await app.callFunction({
-        name: 'dbApi',
-        data: { action: 'query', collection: 'rooms', filter: { passcode: pc }, limit: 1 }
-    });
-    if (!res.result.data || res.result.data.length === 0) {
-        document.getElementById('join-error').textContent = '口令错误';
-        return;
+    try {
+        const res = await api('POST', '/api/database/query', {
+            Mgo: 'rooms',
+            filter: { passcode: pc },
+            limit: 1
+        });
+        if (!res.data || res.data.length === 0) {
+            document.getElementById('join-error').textContent = '口令错误';
+            return;
+        }
+        currentRoom = res.data[0];
+        document.getElementById('page-join').querySelector('.card').classList.add('hidden');
+        document.getElementById('chat-join').classList.remove('hidden');
+        const box = document.getElementById('chat-box');
+        box.innerHTML = '';
+        addMsg('system', '"' + currentRoom.creatorName + '" 的回声：');
+        addMsg('other', currentRoom.initialMessage);
+        startPolling();
+    } catch(e) {
+        document.getElementById('join-error').textContent = '网络错误，请重试';
     }
-    currentRoom = res.result.data[0];
-    document.getElementById('page-join').querySelector('.card').classList.add('hidden');
-    document.getElementById('chat-join').classList.remove('hidden');
-    const box = document.getElementById('chat-box-join'); box.innerHTML = '';
-    addMsg('system', '"' + currentRoom.creatorName + '" 的回声：');
-    addMsg('other', currentRoom.initialMessage);
-    startPolling();
 }
 
 function addMsg(type, text) {
-    const box = document.getElementById('chat-box-join');
+    const box = document.getElementById('chat-box');
     const div = document.createElement('div');
     div.className = 'msg ' + type;
     div.textContent = text;
@@ -310,30 +232,33 @@ async function sendJoinMsg() {
     if (!currentRoom) return;
     const text = document.getElementById('join-message').value.trim();
     if (!text) return;
-    await app.callFunction({
-        name: 'dbApi',
-        data: { action: 'add', collection: 'messages', data: { roomId: currentRoom._id, senderType: 'guest', senderName: '匿名', content: text } }
+    await api('POST', '/api/database/insert', {
+        Mgo: 'messages',
+        data: { roomId: currentRoom._id, senderType: 'guest', senderName: '匿名', content: text }
     });
     addMsg('mine', text);
     document.getElementById('join-message').value = '';
-    await app.callFunction({
-        name: 'dbApi',
-        data: { action: 'update', collection: 'rooms', filter: { _id: currentRoom._id }, data: { status: 'replied' } }
-    });
 }
 
 function startPolling() {
     if (pollingInterval) clearInterval(pollingInterval);
     pollingInterval = setInterval(async () => {
         if (!currentRoom) return;
-        const res = await app.callFunction({
-            name: 'dbApi',
-            data: { action: 'query', collection: 'messages', filter: { roomId: currentRoom._id }, order: ['createdAt','asc'], limit: 30 }
-        });
-        const box = document.getElementById('chat-box-join'); box.innerHTML = '';
-        if (res.result.data) res.result.data.forEach(m => addMsg(m.senderType==='guest'?'mine':'other', m.content));
+        try {
+            const res = await api('POST', '/api/database/query', {
+                Mgo: 'messages',
+                filter: { roomId: currentRoom._id },
+                order: ['createdAt', 'asc'],
+                limit: 30
+            });
+            const box = document.getElementById('chat-box');
+            box.innerHTML = '';
+            if (res.data) res.data.forEach(m => addMsg(m.senderType==='guest'?'mine':'other', m.content));
+        } catch(e) {}
     }, 3000);
 }
+
+window.onload = function() { showPage('page-auth'); };
 </script>
 </body>
 </html>
