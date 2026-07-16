@@ -170,15 +170,22 @@ let currentUser = null, currentRoom = null, pollingInterval = null;
 // ================= 程序入口 =================
 window.onload = function() {
     if (typeof cloudbase === 'undefined') {
-        document.body.innerHTML = '<div style="text-align:center;padding:40px;color:red;"><h3>本地依赖加载失败！</h3><p>请确保 <b>cloudbase.full.3.6.2.js</b> 与本 HTML 文件放在<b>同一目录下</b>并一起上传。</p></div>';
+        document.body.innerHTML = '<div style="text-align:center;padding:40px;color:red;"><h3>SDK加载失败！</h3><p>请确保 <b>cloudbase.full.3.6.2.js</b> 文件与本 HTML 文件在同一目录下并正确上传。</p></div>';
         return;
     }
 
     app = cloudbase.init({ env: ENV_ID });
+    
+    // 初始化匿名登录状态，保障能安全调用云函数
     auth = app.auth({ persistence: "local" });
     db = app.database();
 
-    // 解析是否携带分享链接中的口令参数
+    // 自动触发匿名登录
+    if (!auth.hasLoginState()) {
+        auth.anonymousAuthProvider().signIn().catch(err => console.error("匿名登录失败:", err));
+    }
+
+    // 解析口令参数
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
     
@@ -187,7 +194,6 @@ window.onload = function() {
         document.getElementById('join-passcode').value = code;
         joinRoom();
     } else {
-        // 使用本地缓存记住登录态
         const savedUser = localStorage.getItem('echo_user');
         if (savedUser) {
             currentUser = JSON.parse(savedUser);
@@ -211,7 +217,7 @@ function switchTab(t) {
     document.getElementById('form-register').classList.toggle('hidden', t!=='register');
 }
 
-// ================= 登录：调用云函数直接校验 users 集合 =================
+// ================= 登录：调用云函数直读 users 数据库表 =================
 async function handleLogin() {
     const phone = document.getElementById('login-phone').value.trim();
     const pw = document.getElementById('login-password').value.trim();
@@ -235,7 +241,7 @@ async function handleLogin() {
     }
 }
 
-// ================= 注册：调用云函数写入 users 集合 =================
+// ================= 注册：调用云函数直写 users 数据库表 =================
 async function handleRegister() {
     const phone = document.getElementById('reg-phone').value.trim();
     const pw = document.getElementById('reg-password').value.trim();
@@ -245,7 +251,7 @@ async function handleRegister() {
         const btn = document.querySelector('#form-register .btn');
         btn.disabled = true; btn.textContent = '正在注册...';
 
-        // 1. 校验手机号是否已被注册
+        // 1. 校验是否被注册
         const checkRes = await app.callFunction({
             name: 'dbApi',
             data: { action: 'query', collection: 'users', filter: { phone: phone } }
@@ -257,7 +263,7 @@ async function handleRegister() {
             return;
         }
 
-        // 2. 写入 users 集合
+        // 2. 直接向 users 写入数据
         await app.callFunction({
             name: 'dbApi',
             data: { 
@@ -267,12 +273,12 @@ async function handleRegister() {
             }
         });
 
-        alert('注册成功！已为您自动登录');
+        alert('注册成功！正在为您登入...');
         currentUser = { uid: phone, phone: phone };
         localStorage.setItem('echo_user', JSON.stringify(currentUser));
         afterLogin();
     } catch(e) { 
-        alert('注册失败: ' + (e.message || '服务器未响应')); 
+        alert('注册失败: ' + (e.message || '网络通讯异常，请确认已在后台添加安全域名')); 
     } finally {
         const btn = document.querySelector('#form-register .btn');
         btn.disabled = false; btn.textContent = '创建账号';
@@ -302,7 +308,6 @@ async function createRoom() {
     const adjs = ['悠长的','遥远的','轻柔的','清澈的','温暖的','寂静的','微弱的','坚定的'];
     const passcode = nouns[Math.floor(Math.random()*10)] + '-' + adjs[Math.floor(Math.random()*8)] + '-' + Math.floor(Math.random()*900+100);
     
-    // 生成带口令的自动跳转分享链接
     const joinLink = window.location.origin + window.location.pathname + '?code=' + encodeURIComponent(passcode);
     const smsText = name + ' 给你留下一声回声："' + content + '"。倾听请点击 ' + joinLink + ' 或输入口令：' + passcode + ' 。退订回T';
 
@@ -337,4 +342,91 @@ async function loadMyRooms() {
             return;
         }
         list.innerHTML = res.result.data.map(r => {
-            return `<div class="room-item"><div><strong>${r.targetPhone}</strong><span style="color:var(--text-secondary);font-size:13px;"> · ${r.
+            return `<div class="room-item"><div><strong>${r.targetPhone}</strong><span style="color:var(--text-secondary);font-size:13px;"> · ${r.status==='replied'?'🟢已回复':'⏳等待中'}</span></div><span class="room-passcode">${r.passcode}</span></div>`;
+        }).join('');
+    } catch (e) {
+        console.error("加载列表失败:", e);
+    }
+}
+
+// ================= 加入房间 =================
+async function joinRoom() {
+    const pc = document.getElementById('join-passcode').value.trim();
+    if (!pc) return;
+    try {
+        const res = await app.callFunction({
+            name: 'dbApi',
+            data: { action: 'query', collection: 'rooms', filter: { passcode: pc }, limit: 1 }
+        });
+        if (!res.result || !res.result.data || res.result.data.length === 0) {
+            document.getElementById('join-error').textContent = '口令错误';
+            return;
+        }
+        currentRoom = res.result.data[0];
+        document.getElementById('page-join').querySelector('.card').classList.add('hidden');
+        document.getElementById('chat-join').classList.remove('hidden');
+        const box = document.getElementById('chat-box-join'); box.innerHTML = '';
+        addMsg('system', '"' + currentRoom.creatorName + '" 的回声：');
+        addMsg('other', currentRoom.initialMessage);
+        startPolling();
+    } catch(e) {
+        document.getElementById('join-error').textContent = '查询出错: ' + e.message;
+    }
+}
+
+function addMsg(type, text) {
+    const box = document.getElementById('chat-box-join');
+    const div = document.createElement('div');
+    div.className = 'msg ' + type;
+    div.textContent = text;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+}
+
+// ================= 发送新消息 =================
+async function sendJoinMsg() {
+    if (!currentRoom) return;
+    const text = document.getElementById('join-message').value.trim();
+    if (!text) return;
+    try {
+        await app.callFunction({
+            name: 'dbApi',
+            data: { action: 'add', collection: 'messages', data: { roomId: currentRoom._id, senderType: 'guest', senderName: '匿名', content: text, createdAt: Date.now() } }
+        });
+        addMsg('mine', text);
+        document.getElementById('join-message').value = '';
+        await app.callFunction({
+            name: 'dbApi',
+            data: { action: 'update', collection: 'rooms', filter: { _id: currentRoom._id }, data: { status: 'replied' } }
+        });
+    } catch(e) {
+        alert("发送失败: " + e.message);
+    }
+}
+
+// 开启轮询同步聊天消息
+function startPolling() {
+    if (pollingInterval) clearInterval(pollingInterval);
+    pollingInterval = setInterval(async () => {
+        if (!currentRoom) return;
+        try {
+            const res = await app.callFunction({
+                name: 'dbApi',
+                data: { action: 'query', collection: 'messages', filter: { roomId: currentRoom._id }, order: ['createdAt','asc'], limit: 30 }
+            });
+            const box = document.getElementById('chat-box-join'); 
+            box.innerHTML = '';
+            addMsg('system', '"' + currentRoom.creatorName + '" 的回声：');
+            addMsg('other', currentRoom.initialMessage);
+            
+            if (res.result && res.result.data) {
+                res.result.data.forEach(m => addMsg(m.senderType==='guest'?'mine':'other', m.content));
+            }
+        } catch(e) {
+            console.error("拉取新消息失败:", e);
+        }
+    }, 3000);
+}
+</script>
+</body>
+</html>
