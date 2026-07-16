@@ -98,16 +98,52 @@
             font-size: 13px;
             color: var(--text-secondary);
         }
-        .chat-box { max-height: 350px; overflow-y: auto; }
+        .chat-box { max-height: 350px; overflow-y: auto; padding: 4px 0; }
         .msg {
-            max-width: 80%; margin: 12px 0; padding: 10px 16px;
-            border-radius: 18px; clear: both; word-wrap: break-word;
+            max-width: 75%;
+            margin: 8px 0;
+            padding: 10px 14px;
+            border-radius: 18px;
+            clear: both;
+            word-wrap: break-word;
+            display: inline-block;
+            position: relative;
         }
-        .msg.other { background: var(--bg); float: left; }
-        .msg.mine { background: var(--primary); color: white; float: right; }
+        /* 自己的消息在左边（左浮动） */
+        .msg.mine {
+            float: left;
+            background: var(--bg);
+            color: var(--text);
+            border-bottom-left-radius: 4px;
+        }
+        /* 对方的消息在右边（右浮动） */
+        .msg.other {
+            float: right;
+            background: var(--primary);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
         .msg.system {
-            text-align: center; color: var(--text-secondary);
-            font-size: 13px; float: none;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 13px;
+            float: none;
+            max-width: 100%;
+            background: transparent;
+            padding: 6px 0;
+        }
+        /* 已读标记 */
+        .msg .read-status {
+            font-size: 10px;
+            opacity: 0.7;
+            margin-left: 8px;
+            display: inline-block;
+        }
+        .msg.other .read-status {
+            color: rgba(255,255,255,0.8);
+        }
+        .msg.mine .read-status {
+            color: var(--text-secondary);
         }
 
         /* 底部导航 */
@@ -203,11 +239,10 @@
     <div id="page-main" class="hidden">
         <div class="download-bar"><div><strong>📱 回声 App</strong><span style="font-size:13px;opacity:0.9;">更快更稳定</span></div><a href="#">下载</a></div>
         
-        <!-- 页面内容 -->
         <div class="page-content">
             <!-- 首页 -->
             <div id="tab-home" class="tab-page">
-                <!-- 倾听回声 (放在最上端) -->
+                <!-- 倾听回声 -->
                 <div class="card">
                     <h3 style="margin-bottom:8px;">🔑 倾听回声</h3>
                     <p style="color:var(--text-secondary);font-size:14px;margin-bottom:12px;">输入回音口令，进入对话</p>
@@ -253,7 +288,6 @@
                     </div>
                 </div>
 
-                <!-- 修改密码 -->
                 <div class="card">
                     <h4 style="margin-bottom:12px;">🔒 修改密码</h4>
                     <div class="input-group"><span class="icon">🔑</span><input type="password" id="old-password" placeholder="原密码"></div>
@@ -261,7 +295,6 @@
                     <button class="btn btn-primary" onclick="changePassword()">确认修改</button>
                 </div>
 
-                <!-- VIP购买 -->
                 <div class="card">
                     <h4 style="margin-bottom:12px;">💎 开通VIP</h4>
                     <div class="vip-plan">
@@ -284,7 +317,6 @@
             </div>
         </div>
 
-        <!-- 退出按钮 (放在内容底部) -->
         <button class="btn btn-outline" style="margin-top:8px;" onclick="logout()">退出登录</button>
     </div>
 
@@ -311,7 +343,7 @@
         </div>
     </div>
 
-    <!-- 底部导航 (仅在登录后显示) -->
+    <!-- 底部导航 -->
     <div id="bottom-nav" class="bottom-nav hidden">
         <div class="nav-item active" data-tab="home" onclick="switchMainTab('home')">
             <span class="nav-icon">🏠</span>
@@ -334,9 +366,9 @@
 const ENV_ID = 'echo-d1ggxqxb47c1224f7';
 let app, auth, db;
 let currentUser = null, currentRoom = null, pollingInterval = null;
-let isVIP = false;          // 从数据库读取
-let vipExpire = 0;          // 时间戳
-let todaySendCount = 0;     // 今日已发次数
+let isVIP = false;
+let vipExpire = 0;
+let todaySendCount = 0;
 
 // ================= 程序入口 =================
 window.onload = function() {
@@ -366,7 +398,7 @@ window.onload = function() {
             showPage('page-main');
             loadUserInfo();
             loadMyRooms();
-            switchMainTab('home'); // 默认首页
+            switchMainTab('home');
         } else {
             showPage('page-auth');
         }
@@ -376,7 +408,6 @@ window.onload = function() {
 function showPage(id) {
     document.querySelectorAll('[id^="page-"]').forEach(el => el.classList.add('hidden'));
     document.getElementById(id).classList.remove('hidden');
-    // 控制底部导航显示
     if (id === 'page-main') {
         document.getElementById('bottom-nav').classList.remove('hidden');
     } else {
@@ -481,8 +512,6 @@ async function loadUserInfo() {
             } else {
                 document.getElementById('profile-vip-status').textContent = '非VIP';
             }
-            // 获取今日发送次数 (存储于本地或数据库)
-            // 简单实现：从本地读取今日计数，若跨天重置
             const today = new Date().toDateString();
             const stored = localStorage.getItem('sendCount_' + currentUser.phone);
             if (stored) {
@@ -515,7 +544,6 @@ async function changePassword() {
     const newPw = document.getElementById('new-password').value.trim();
     if (!old || !newPw || newPw.length < 6) return alert('请完整填写，新密码至少6位');
     try {
-        // 验证旧密码
         const check = await app.callFunction({
             name: 'dbApi',
             data: { action: 'query', collection: 'users', filter: { phone: currentUser.phone, password: old } }
@@ -537,10 +565,6 @@ async function changePassword() {
 function buyVIP(days, price) {
     if (!currentUser) return alert('请先登录');
     alert('💳 即将跳转支付：' + price + ' 元，开通 ' + days + ' 天 VIP\n支付方式：支付宝 / 微信（占位）');
-    // 此处可接入真实支付，成功后调用云函数更新用户vip状态
-    // 模拟购买成功：
-    // 实际应调用云函数更新数据库，此处仅演示
-    // 为了演示，直接模拟VIP生效
     const expire = Date.now() + days * 24 * 3600 * 1000;
     app.callFunction({
         name: 'dbApi',
@@ -551,7 +575,7 @@ function buyVIP(days, price) {
     }).catch(e => alert('开通失败: ' + e.message));
 }
 
-// ================= 创建回声 (含VIP检查) =================
+// ================= 创建回声 =================
 async function createRoom() {
     if (!currentUser) return alert('请先登录');
     const phone = document.getElementById('target-phone').value.trim();
@@ -559,7 +583,6 @@ async function createRoom() {
     const content = document.getElementById('message-content').value.trim();
     if (!phone || !name || !content) return alert('请完整填写');
 
-    // 检查VIP和次数
     const today = new Date().toDateString();
     const stored = localStorage.getItem('sendCount_' + currentUser.phone);
     if (stored) {
@@ -572,9 +595,7 @@ async function createRoom() {
     }
 
     if (!isVIP) {
-        // 非VIP：每次需支付1元 (占位)
         if (!confirm('非VIP用户每次发送需支付 1 元，是否继续？')) return;
-        // 模拟支付成功
         alert('💳 支付 1 元 (占位)');
     } else {
         if (todaySendCount >= 1) {
@@ -583,7 +604,6 @@ async function createRoom() {
         }
     }
 
-    // 生成口令
     const nouns = ['空谷','松涛','晚钟','风铃','潮汐','山泉','竹林','夜莺','鲸歌','风笛'];
     const adjs = ['悠长的','遥远的','轻柔的','清澈的','温暖的','寂静的','微弱的','坚定的'];
     const passcode = nouns[Math.floor(Math.random()*10)] + '-' + adjs[Math.floor(Math.random()*8)] + '-' + Math.floor(Math.random()*900+100);
@@ -604,7 +624,6 @@ async function createRoom() {
         });
         document.getElementById('result-passcode').textContent = passcode;
         document.getElementById('result-card').classList.remove('hidden');
-        // 更新发送次数
         if (isVIP) {
             todaySendCount++;
             localStorage.setItem('sendCount_' + currentUser.phone, JSON.stringify({date: today, count: todaySendCount}));
@@ -697,7 +716,9 @@ async function joinRoom() {
             });
             if (msgRes.result && msgRes.result.data) {
                 msgRes.result.data.forEach(m => {
-                    addMsg(m.senderType === 'guest' ? 'mine' : 'other', m.content);
+                    // 根据发送者类型决定显示样式：guest 表示当前用户（自己），其他为对方
+                    const type = m.senderType === 'guest' ? 'mine' : 'other';
+                    addMsg(type, m.content);
                 });
             }
         } catch(e) { console.error("加载消息失败:", e); }
@@ -707,12 +728,14 @@ async function joinRoom() {
     }
 }
 
-// ================= 聊天消息 =================
+// ================= 聊天消息（带已读标记） =================
 function addMsg(type, text) {
     const box = document.getElementById('chat-box-join');
     const div = document.createElement('div');
     div.className = 'msg ' + type;
-    div.textContent = text;
+    // 消息文本 + 已读标记（占位）
+    const readMark = ' ✓';  // 模拟已读
+    div.innerHTML = `<span>${text}</span><span class="read-status">${readMark}</span>`;
     box.appendChild(div);
     box.scrollTop = box.scrollHeight;
 }
@@ -726,7 +749,7 @@ async function sendJoinMsg() {
             name: 'dbApi',
             data: { action: 'add', collection: 'messages', data: { roomId: currentRoom._id, senderType: 'guest', senderName: '匿名', content: text, createdAt: Date.now() } }
         });
-        addMsg('mine', text);
+        addMsg('mine', text);  // 自己的消息在左边
         document.getElementById('join-message').value = '';
         await app.callFunction({
             name: 'dbApi',
@@ -745,6 +768,7 @@ function leaveChat() {
     switchMainTab('messages');
 }
 
+// ================= 轮询 =================
 function startPolling() {
     if (pollingInterval) clearInterval(pollingInterval);
     pollingInterval = setInterval(async () => {
@@ -755,10 +779,10 @@ function startPolling() {
                 data: { action: 'query', collection: 'messages', filter: { roomId: currentRoom._id }, order: ['createdAt','asc'], limit: 30 }
             });
             const box = document.getElementById('chat-box-join');
-            // 简单更新（若有新消息则重绘）
             if (res.result && res.result.data) {
                 const currentMsgs = box.querySelectorAll('.msg:not(.system)').length;
                 if (res.result.data.length !== currentMsgs) {
+                    // 重新绘制
                     const systemMsg = box.querySelector('.msg.system');
                     const otherMsg = box.querySelector('.msg.other');
                     const systemText = systemMsg ? systemMsg.textContent : '🏔️ 来自 "' + currentRoom.creatorName + '" 的回声：';
@@ -767,7 +791,8 @@ function startPolling() {
                     addMsg('system', systemText);
                     addMsg('other', otherText);
                     res.result.data.forEach(m => {
-                        addMsg(m.senderType === 'guest' ? 'mine' : 'other', m.content);
+                        const type = m.senderType === 'guest' ? 'mine' : 'other';
+                        addMsg(type, m.content);
                     });
                 }
             }
