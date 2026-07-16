@@ -9,13 +9,14 @@
             --primary: #5B6ABF; --primary-light: #EEF0FA; --bg: #F4F6FB;
             --surface: #FFFFFF; --text: #1E2746; --text-secondary: #6F7A9C;
             --border: #E8ECF4; --danger: #E06C75;
+            --tab-height: 68px;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--bg); color: var(--text);
             min-height: 100vh; display: flex; justify-content: center;
-            padding: 16px;
+            padding: 16px 16px calc(16px + var(--tab-height));
         }
         .app-container { width: 100%; max-width: 440px; }
         .card {
@@ -55,6 +56,8 @@
             font-weight: 600; cursor: pointer;
         }
         .btn-primary { background: var(--primary); color: white; }
+        .btn-outline { background: transparent; color: var(--primary); border: 1.5px solid var(--primary); }
+        .btn-danger { background: var(--danger); color: white; }
         .btn:disabled { opacity: 0.6; }
         .tabs {
             display: flex; background: var(--bg);
@@ -106,10 +109,74 @@
             text-align: center; color: var(--text-secondary);
             font-size: 13px; float: none;
         }
+
+        /* 底部导航 */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            height: var(--tab-height);
+            justify-content: space-around;
+            align-items: center;
+            padding: 0 16px;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.04);
+            z-index: 100;
+        }
+        .bottom-nav .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 12px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 4px 12px;
+            border-radius: 12px;
+            transition: 0.2s;
+            min-width: 56px;
+        }
+        .bottom-nav .nav-item.active {
+            color: var(--primary);
+            font-weight: 600;
+        }
+        .bottom-nav .nav-item .nav-icon {
+            font-size: 24px;
+            margin-bottom: 2px;
+        }
+        .bottom-nav .nav-item .nav-label {
+            font-size: 11px;
+        }
+
+        /* VIP 样式 */
+        .vip-badge {
+            background: linear-gradient(135deg, #F5A623, #F7C948);
+            color: white;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        .vip-plan {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .vip-plan .plan-name { font-weight: 600; }
+        .vip-plan .plan-price { color: var(--primary); font-weight: 700; }
+        .vip-plan .btn-buy { width: auto; padding: 6px 20px; font-size: 14px; }
+
+        .page-content { padding-bottom: 20px; }
     </style>
 </head>
 <body>
 <div class="app-container">
+    <!-- 认证页 (登录/注册) -->
     <div id="page-auth">
         <div class="card text-center" style="padding:32px 24px;">
             <h1 class="brand-title">回声</h1>
@@ -132,42 +199,96 @@
         <div class="download-bar"><div><strong>📱 回声 App</strong><span style="font-size:13px;opacity:0.9;">更快更稳定</span></div><a href="#">下载</a></div>
     </div>
 
+    <!-- 主应用 (首页/消息/我的) -->
     <div id="page-main" class="hidden">
         <div class="download-bar"><div><strong>📱 回声 App</strong><span style="font-size:13px;opacity:0.9;">更快更稳定</span></div><a href="#">下载</a></div>
-        <div style="text-align:center;color:var(--text-secondary);margin-bottom:8px;">声音已发出，正在等待回声...</div>
-        <div class="card">
-            <h3 style="margin-bottom:12px;">📡 喊出你的话</h3>
-            <div class="input-group"><span class="icon">📞</span><input id="target-phone" placeholder="对方手机号"></div>
-            <div class="input-group"><span class="icon">👤</span><input id="your-name" placeholder="你的名字"></div>
-            <div class="input-group"><span class="icon">💬</span><textarea id="message-content" placeholder="你想说的话..."></textarea></div>
-            <button class="btn btn-primary" id="send-btn" onclick="createRoom()">📡 发出回声</button>
-        </div>
-        <div id="result-card" class="card hidden text-center">
-            <span style="font-size:40px;">✅</span>
-            <h3>回声已发出</h3>
-            <p style="color:var(--text-secondary);">对方将收到短信，内含回音口令</p>
-            <div style="background:var(--primary-light);padding:12px;border-radius:12px;font-size:22px;color:var(--primary);font-weight:600; margin-top:10px;" id="result-passcode"></div>
-        </div>
-        <div class="card">
-            <h3 style="margin-bottom:8px;">📂 我发出的回声</h3>
-            <div id="room-list">加载中...</div>
-        </div>
+        
+        <!-- 页面内容 -->
+        <div class="page-content">
+            <!-- 首页 -->
+            <div id="tab-home" class="tab-page">
+                <!-- 倾听回声 (放在最上端) -->
+                <div class="card">
+                    <h3 style="margin-bottom:8px;">🔑 倾听回声</h3>
+                    <p style="color:var(--text-secondary);font-size:14px;margin-bottom:12px;">输入回音口令，进入对话</p>
+                    <div class="input-group">
+                        <span class="icon">🔑</span>
+                        <input id="join-passcode-home" placeholder="例如：空谷-悠长的-901">
+                    </div>
+                    <button class="btn btn-primary" onclick="enterRoomFromHome()">侧耳倾听</button>
+                </div>
 
-        <!-- 新增：倾听回声卡片 -->
-        <div class="card">
-            <h3 style="margin-bottom:12px;">🔑 倾听回声</h3>
-            <p style="color:var(--text-secondary);font-size:14px;margin-bottom:12px;">输入回音口令，进入对话</p>
-            <div class="input-group">
-                <span class="icon">🔑</span>
-                <input id="join-passcode-main" placeholder="例如：空谷-悠长的-901">
+                <!-- 喊出你的话 -->
+                <div class="card">
+                    <h3 style="margin-bottom:12px;">📡 喊出你的话</h3>
+                    <div class="input-group"><span class="icon">📞</span><input id="target-phone" placeholder="对方手机号"></div>
+                    <div class="input-group"><span class="icon">👤</span><input id="your-name" placeholder="你的名字"></div>
+                    <div class="input-group"><span class="icon">💬</span><textarea id="message-content" placeholder="你想说的话..."></textarea></div>
+                    <button class="btn btn-primary" id="send-btn" onclick="createRoom()">📡 发出回声</button>
+                    <div id="send-info" style="margin-top:8px;font-size:13px;color:var(--text-secondary);text-align:center;"></div>
+                </div>
+                <div id="result-card" class="card hidden text-center">
+                    <span style="font-size:40px;">✅</span>
+                    <h3>回声已发出</h3>
+                    <p style="color:var(--text-secondary);">对方将收到短信，内含回音口令</p>
+                    <div style="background:var(--primary-light);padding:12px;border-radius:12px;font-size:22px;color:var(--primary);font-weight:600; margin-top:10px;" id="result-passcode"></div>
+                </div>
             </div>
-            <button class="btn btn-primary" onclick="enterRoomFromMain()">侧耳倾听</button>
-        </div>
-        <!-- 新增结束 -->
 
-        <button class="btn" style="background:transparent;color:var(--primary);border:1.5px solid var(--primary);margin-top:16px;" onclick="logout()">退出</button>
+            <!-- 消息页 -->
+            <div id="tab-messages" class="tab-page hidden">
+                <div class="card">
+                    <h3 style="margin-bottom:8px;">📂 我发出的回声</h3>
+                    <div id="room-list">加载中...</div>
+                </div>
+            </div>
+
+            <!-- 我的页 -->
+            <div id="tab-profile" class="tab-page hidden">
+                <div class="card">
+                    <h3>👤 我的账号</h3>
+                    <div style="margin-top:12px;">
+                        <p><strong>手机号</strong> <span id="profile-phone">---</span></p>
+                        <p style="margin-top:6px;"><strong>VIP状态</strong> <span id="profile-vip-status">非VIP</span></p>
+                    </div>
+                </div>
+
+                <!-- 修改密码 -->
+                <div class="card">
+                    <h4 style="margin-bottom:12px;">🔒 修改密码</h4>
+                    <div class="input-group"><span class="icon">🔑</span><input type="password" id="old-password" placeholder="原密码"></div>
+                    <div class="input-group"><span class="icon">🔒</span><input type="password" id="new-password" placeholder="新密码(6位以上)"></div>
+                    <button class="btn btn-primary" onclick="changePassword()">确认修改</button>
+                </div>
+
+                <!-- VIP购买 -->
+                <div class="card">
+                    <h4 style="margin-bottom:12px;">💎 开通VIP</h4>
+                    <div class="vip-plan">
+                        <span class="plan-name">7天体验</span>
+                        <span class="plan-price">¥4.99</span>
+                        <button class="btn btn-primary btn-buy" onclick="buyVIP(7, 4.99)">购买</button>
+                    </div>
+                    <div class="vip-plan">
+                        <span class="plan-name">1个月</span>
+                        <span class="plan-price">¥15.99</span>
+                        <button class="btn btn-primary btn-buy" onclick="buyVIP(30, 15.99)">购买</button>
+                    </div>
+                    <div class="vip-plan">
+                        <span class="plan-name">1年</span>
+                        <span class="plan-price">¥179.99</span>
+                        <button class="btn btn-primary btn-buy" onclick="buyVIP(365, 179.99)">购买</button>
+                    </div>
+                    <p style="font-size:12px;color:var(--text-secondary);margin-top:8px;">支付方式：支付宝 / 微信（暂为占位）</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 退出按钮 (放在内容底部) -->
+        <button class="btn btn-outline" style="margin-top:8px;" onclick="logout()">退出登录</button>
     </div>
 
+    <!-- 聊天页 (独立) -->
     <div id="page-join" class="hidden">
         <div class="download-bar"><div><strong>📱 回声 App</strong><span style="font-size:13px;opacity:0.9;">更快更稳定</span></div><a href="#">下载</a></div>
         <div class="card text-center">
@@ -184,6 +305,25 @@
                 <input id="join-message" placeholder="你的回应..." style="flex:1;padding:12px;border-radius:50px;border:1px solid var(--border);">
                 <button class="btn btn-primary" style="width:auto;padding:12px 24px;" onclick="sendJoinMsg()">发送</button>
             </div>
+            <div style="margin-top:8px;">
+                <button class="btn btn-outline" style="width:auto;padding:8px 16px;font-size:14px;" onclick="leaveChat()">退出聊天</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部导航 (仅在登录后显示) -->
+    <div id="bottom-nav" class="bottom-nav hidden">
+        <div class="nav-item active" data-tab="home" onclick="switchMainTab('home')">
+            <span class="nav-icon">🏠</span>
+            <span class="nav-label">首页</span>
+        </div>
+        <div class="nav-item" data-tab="messages" onclick="switchMainTab('messages')">
+            <span class="nav-icon">💬</span>
+            <span class="nav-label">消息</span>
+        </div>
+        <div class="nav-item" data-tab="profile" onclick="switchMainTab('profile')">
+            <span class="nav-icon">👤</span>
+            <span class="nav-label">我的</span>
         </div>
     </div>
 </div>
@@ -194,6 +334,9 @@
 const ENV_ID = 'echo-d1ggxqxb47c1224f7';
 let app, auth, db;
 let currentUser = null, currentRoom = null, pollingInterval = null;
+let isVIP = false;          // 从数据库读取
+let vipExpire = 0;          // 时间戳
+let todaySendCount = 0;     // 今日已发次数
 
 // ================= 程序入口 =================
 window.onload = function() {
@@ -203,20 +346,15 @@ window.onload = function() {
     }
 
     app = cloudbase.init({ env: ENV_ID });
-    
-    // 初始化匿名登录状态，保障能安全调用云函数
     auth = app.auth({ persistence: "local" });
     db = app.database();
 
-    // 自动触发匿名登录
     if (!auth.hasLoginState()) {
         auth.anonymousAuthProvider().signIn().catch(err => console.error("匿名登录失败:", err));
     }
 
-    // 解析口令参数
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
-    
     if (code) {
         showPage('page-join');
         document.getElementById('join-passcode').value = code;
@@ -226,7 +364,9 @@ window.onload = function() {
         if (savedUser) {
             currentUser = JSON.parse(savedUser);
             showPage('page-main');
+            loadUserInfo();
             loadMyRooms();
+            switchMainTab('home'); // 默认首页
         } else {
             showPage('page-auth');
         }
@@ -236,6 +376,12 @@ window.onload = function() {
 function showPage(id) {
     document.querySelectorAll('[id^="page-"]').forEach(el => el.classList.add('hidden'));
     document.getElementById(id).classList.remove('hidden');
+    // 控制底部导航显示
+    if (id === 'page-main') {
+        document.getElementById('bottom-nav').classList.remove('hidden');
+    } else {
+        document.getElementById('bottom-nav').classList.add('hidden');
+    }
 }
 
 function switchTab(t) {
@@ -245,77 +391,68 @@ function switchTab(t) {
     document.getElementById('form-register').classList.toggle('hidden', t!=='register');
 }
 
-// ================= 登录：调用云函数直读 users 数据库表 =================
+// ================= 主标签切换 =================
+function switchMainTab(tab) {
+    document.querySelectorAll('.tab-page').forEach(el => el.classList.add('hidden'));
+    document.getElementById('tab-' + tab).classList.remove('hidden');
+    document.querySelectorAll('.bottom-nav .nav-item').forEach(el => el.classList.remove('active'));
+    document.querySelector(`.bottom-nav .nav-item[data-tab="${tab}"]`).classList.add('active');
+    if (tab === 'messages') loadMyRooms();
+    if (tab === 'profile') loadUserInfo();
+}
+
+// ================= 登录 / 注册 =================
 async function handleLogin() {
     const phone = document.getElementById('login-phone').value.trim();
     const pw = document.getElementById('login-password').value.trim();
     if (!phone || !pw) return alert('请输入手机号和密码');
-    
     try {
         const res = await app.callFunction({
             name: 'dbApi',
             data: { action: 'query', collection: 'users', filter: { phone: phone, password: pw } }
         });
-        
         if (!res.result || !res.result.data || res.result.data.length === 0) {
             return alert('手机号或密码错误');
         }
-        
         currentUser = { uid: phone, phone: phone };
         localStorage.setItem('echo_user', JSON.stringify(currentUser));
         afterLogin();
-    } catch(e) { 
-        alert('登录失败: ' + e.message); 
-    }
+    } catch(e) { alert('登录失败: ' + e.message); }
 }
 
-// ================= 注册：调用云函数直写 users 数据库表 =================
 async function handleRegister() {
     const phone = document.getElementById('reg-phone').value.trim();
     const pw = document.getElementById('reg-password').value.trim();
     if (!phone || pw.length < 6) return alert('密码至少6位');
-    
     try {
         const btn = document.querySelector('#form-register .btn');
         btn.disabled = true; btn.textContent = '正在注册...';
-
-        // 1. 校验是否被注册
         const checkRes = await app.callFunction({
             name: 'dbApi',
             data: { action: 'query', collection: 'users', filter: { phone: phone } }
         });
-        
         if (checkRes.result && checkRes.result.data && checkRes.result.data.length > 0) {
             alert('该手机号已注册，请直接登录');
             switchTab('login');
             return;
         }
-
-        // 2. 直接向 users 写入数据
         await app.callFunction({
             name: 'dbApi',
-            data: { 
-                action: 'add', 
-                collection: 'users', 
-                data: { phone: phone, password: pw, createdAt: Date.now() } 
-            }
+            data: { action: 'add', collection: 'users', data: { phone: phone, password: pw, createdAt: Date.now() } }
         });
-
         alert('注册成功！正在为您登入...');
         currentUser = { uid: phone, phone: phone };
         localStorage.setItem('echo_user', JSON.stringify(currentUser));
         afterLogin();
-    } catch(e) { 
-        alert('注册失败: ' + (e.message || '网络通讯异常，请确认已在后台添加安全域名')); 
-    } finally {
-        const btn = document.querySelector('#form-register .btn');
-        btn.disabled = false; btn.textContent = '创建账号';
-    }
+    } catch(e) { alert('注册失败: ' + (e.message || '网络通讯异常')); }
+    finally { const btn = document.querySelector('#form-register .btn'); btn.disabled = false; btn.textContent = '创建账号'; }
 }
 
 function afterLogin() {
     showPage('page-main');
+    loadUserInfo();
     loadMyRooms();
+    switchMainTab('home');
 }
 
 function logout() {
@@ -325,7 +462,96 @@ function logout() {
     if (pollingInterval) clearInterval(pollingInterval);
 }
 
-// ================= 创建房间 =================
+// ================= 用户信息 & VIP =================
+async function loadUserInfo() {
+    if (!currentUser) return;
+    try {
+        const res = await app.callFunction({
+            name: 'dbApi',
+            data: { action: 'query', collection: 'users', filter: { phone: currentUser.phone }, limit: 1 }
+        });
+        if (res.result && res.result.data && res.result.data.length > 0) {
+            const user = res.result.data[0];
+            document.getElementById('profile-phone').textContent = user.phone;
+            const vip = user.vip || false;
+            const expire = user.vipExpire || 0;
+            isVIP = vip && (expire > Date.now());
+            if (isVIP) {
+                document.getElementById('profile-vip-status').innerHTML = '✅ VIP 会员 <span style="font-size:12px;color:var(--text-secondary);">到期 ' + new Date(expire).toLocaleDateString() + '</span>';
+            } else {
+                document.getElementById('profile-vip-status').textContent = '非VIP';
+            }
+            // 获取今日发送次数 (存储于本地或数据库)
+            // 简单实现：从本地读取今日计数，若跨天重置
+            const today = new Date().toDateString();
+            const stored = localStorage.getItem('sendCount_' + currentUser.phone);
+            if (stored) {
+                const data = JSON.parse(stored);
+                if (data.date === today) todaySendCount = data.count;
+                else { todaySendCount = 0; localStorage.setItem('sendCount_' + currentUser.phone, JSON.stringify({date: today, count: 0})); }
+            } else {
+                todaySendCount = 0;
+                localStorage.setItem('sendCount_' + currentUser.phone, JSON.stringify({date: today, count: 0}));
+            }
+            updateSendInfo();
+        }
+    } catch(e) { console.error("加载用户信息失败:", e); }
+}
+
+function updateSendInfo() {
+    const info = document.getElementById('send-info');
+    if (isVIP) {
+        const remain = 1 - todaySendCount;
+        info.textContent = 'VIP 会员 · 今日剩余免费 ' + Math.max(0, remain) + ' 次';
+    } else {
+        info.textContent = '非VIP · 每次发送需支付 1 元';
+    }
+}
+
+// ================= 修改密码 =================
+async function changePassword() {
+    if (!currentUser) return alert('请先登录');
+    const old = document.getElementById('old-password').value.trim();
+    const newPw = document.getElementById('new-password').value.trim();
+    if (!old || !newPw || newPw.length < 6) return alert('请完整填写，新密码至少6位');
+    try {
+        // 验证旧密码
+        const check = await app.callFunction({
+            name: 'dbApi',
+            data: { action: 'query', collection: 'users', filter: { phone: currentUser.phone, password: old } }
+        });
+        if (!check.result || !check.result.data || check.result.data.length === 0) {
+            return alert('原密码错误');
+        }
+        await app.callFunction({
+            name: 'dbApi',
+            data: { action: 'update', collection: 'users', filter: { phone: currentUser.phone }, data: { password: newPw } }
+        });
+        alert('密码修改成功！');
+        document.getElementById('old-password').value = '';
+        document.getElementById('new-password').value = '';
+    } catch(e) { alert('修改失败: ' + e.message); }
+}
+
+// ================= VIP 购买 (占位) =================
+function buyVIP(days, price) {
+    if (!currentUser) return alert('请先登录');
+    alert('💳 即将跳转支付：' + price + ' 元，开通 ' + days + ' 天 VIP\n支付方式：支付宝 / 微信（占位）');
+    // 此处可接入真实支付，成功后调用云函数更新用户vip状态
+    // 模拟购买成功：
+    // 实际应调用云函数更新数据库，此处仅演示
+    // 为了演示，直接模拟VIP生效
+    const expire = Date.now() + days * 24 * 3600 * 1000;
+    app.callFunction({
+        name: 'dbApi',
+        data: { action: 'update', collection: 'users', filter: { phone: currentUser.phone }, data: { vip: true, vipExpire: expire } }
+    }).then(() => {
+        alert('🎉 开通成功！');
+        loadUserInfo();
+    }).catch(e => alert('开通失败: ' + e.message));
+}
+
+// ================= 创建回声 (含VIP检查) =================
 async function createRoom() {
     if (!currentUser) return alert('请先登录');
     const phone = document.getElementById('target-phone').value.trim();
@@ -333,6 +559,31 @@ async function createRoom() {
     const content = document.getElementById('message-content').value.trim();
     if (!phone || !name || !content) return alert('请完整填写');
 
+    // 检查VIP和次数
+    const today = new Date().toDateString();
+    const stored = localStorage.getItem('sendCount_' + currentUser.phone);
+    if (stored) {
+        const data = JSON.parse(stored);
+        if (data.date === today) todaySendCount = data.count;
+        else { todaySendCount = 0; localStorage.setItem('sendCount_' + currentUser.phone, JSON.stringify({date: today, count: 0})); }
+    } else {
+        todaySendCount = 0;
+        localStorage.setItem('sendCount_' + currentUser.phone, JSON.stringify({date: today, count: 0}));
+    }
+
+    if (!isVIP) {
+        // 非VIP：每次需支付1元 (占位)
+        if (!confirm('非VIP用户每次发送需支付 1 元，是否继续？')) return;
+        // 模拟支付成功
+        alert('💳 支付 1 元 (占位)');
+    } else {
+        if (todaySendCount >= 1) {
+            alert('VIP用户每日仅限免费发送1次，如需更多请等待明天或降级');
+            return;
+        }
+    }
+
+    // 生成口令
     const nouns = ['空谷','松涛','晚钟','风铃','潮汐','山泉','竹林','夜莺','鲸歌','风笛'];
     const adjs = ['悠长的','遥远的','轻柔的','清澈的','温暖的','寂静的','微弱的','坚定的'];
     const passcode = nouns[Math.floor(Math.random()*10)] + '-' + adjs[Math.floor(Math.random()*8)] + '-' + Math.floor(Math.random()*900+100);
@@ -353,12 +604,18 @@ async function createRoom() {
         });
         document.getElementById('result-passcode').textContent = passcode;
         document.getElementById('result-card').classList.remove('hidden');
+        // 更新发送次数
+        if (isVIP) {
+            todaySendCount++;
+            localStorage.setItem('sendCount_' + currentUser.phone, JSON.stringify({date: today, count: todaySendCount}));
+            updateSendInfo();
+        }
         loadMyRooms();
     } catch(e) { alert('操作失败: ' + e.message); }
     finally { btn.disabled = false; btn.textContent = '📡 发出回声'; }
 }
 
-// ================= 加载我发出的回声列表（点击可进入聊天） =================
+// ================= 加载消息列表 =================
 async function loadMyRooms() {
     if (!currentUser) return;
     try {
@@ -371,7 +628,6 @@ async function loadMyRooms() {
             list.innerHTML = '<p style="color:var(--text-secondary);text-align:center;">暂无回声</p>';
             return;
         }
-        // 每个条目可点击，点击后自动跳转聊天
         list.innerHTML = res.result.data.map(r => {
             const statusText = r.status === 'replied' ? '🟢 已回复' : '⏳ 等待中';
             return `<div class="room-item" onclick="enterRoomFromList('${r.passcode}')">
@@ -385,32 +641,24 @@ async function loadMyRooms() {
         }).join('');
     } catch (e) {
         console.error("加载列表失败:", e);
-        document.getElementById('room-list').innerHTML = '<p style="color:var(--danger);text-align:center;">加载失败，请刷新</p>';
+        document.getElementById('room-list').innerHTML = '<p style="color:var(--danger);text-align:center;">加载失败</p>';
     }
 }
 
-// ================= 从列表点击进入聊天 =================
+// ================= 进入聊天 =================
 function enterRoomFromList(passcode) {
     showPage('page-join');
     document.getElementById('join-passcode').value = passcode;
     document.getElementById('join-error').textContent = '';
-    // 清空旧聊天内容
     document.getElementById('chat-box-join').innerHTML = '';
-    // 隐藏旧聊天卡片（如果显示着）
     document.getElementById('chat-join').classList.add('hidden');
-    // 显示输入口令卡片
     document.getElementById('page-join').querySelector('.card.text-center').classList.remove('hidden');
-    // 自动加入
     joinRoom();
 }
 
-// ================= 从主页面快速加入 =================
-function enterRoomFromMain() {
-    const code = document.getElementById('join-passcode-main').value.trim();
-    if (!code) {
-        alert('请输入回音口令');
-        return;
-    }
+function enterRoomFromHome() {
+    const code = document.getElementById('join-passcode-home').value.trim();
+    if (!code) { alert('请输入回音口令'); return; }
     showPage('page-join');
     document.getElementById('join-passcode').value = code;
     document.getElementById('join-error').textContent = '';
@@ -423,11 +671,7 @@ function enterRoomFromMain() {
 // ================= 加入房间 =================
 async function joinRoom() {
     const pc = document.getElementById('join-passcode').value.trim();
-    if (!pc) {
-        document.getElementById('join-error').textContent = '请输入口令';
-        return;
-    }
-    // 清除旧错误
+    if (!pc) { document.getElementById('join-error').textContent = '请输入口令'; return; }
     document.getElementById('join-error').textContent = '';
     try {
         const res = await app.callFunction({
@@ -439,7 +683,6 @@ async function joinRoom() {
             return;
         }
         currentRoom = res.result.data[0];
-        // 隐藏口令输入卡片，显示聊天卡片
         document.getElementById('page-join').querySelector('.card.text-center').classList.add('hidden');
         document.getElementById('chat-join').classList.remove('hidden');
         const box = document.getElementById('chat-box-join'); 
@@ -464,7 +707,7 @@ async function joinRoom() {
     }
 }
 
-// ================= 聊天消息相关 =================
+// ================= 聊天消息 =================
 function addMsg(type, text) {
     const box = document.getElementById('chat-box-join');
     const div = document.createElement('div');
@@ -485,21 +728,23 @@ async function sendJoinMsg() {
         });
         addMsg('mine', text);
         document.getElementById('join-message').value = '';
-        // 更新房间状态为已回复
         await app.callFunction({
             name: 'dbApi',
             data: { action: 'update', collection: 'rooms', filter: { _id: currentRoom._id }, data: { status: 'replied' } }
         });
-        // 刷新列表（如果主页面正在显示）
         if (document.getElementById('page-main').classList.contains('hidden') === false) {
             loadMyRooms();
         }
-    } catch(e) {
-        alert("发送失败: " + e.message);
-    }
+    } catch(e) { alert("发送失败: " + e.message); }
 }
 
-// 开启轮询同步聊天消息
+function leaveChat() {
+    if (pollingInterval) clearInterval(pollingInterval);
+    currentRoom = null;
+    showPage('page-main');
+    switchMainTab('messages');
+}
+
 function startPolling() {
     if (pollingInterval) clearInterval(pollingInterval);
     pollingInterval = setInterval(async () => {
@@ -509,15 +754,11 @@ function startPolling() {
                 name: 'dbApi',
                 data: { action: 'query', collection: 'messages', filter: { roomId: currentRoom._id }, order: ['createdAt','asc'], limit: 30 }
             });
-            // 只更新，不重建（防止闪烁）
             const box = document.getElementById('chat-box-join');
-            // 简单判断：如果消息数量变化，重新渲染
+            // 简单更新（若有新消息则重绘）
             if (res.result && res.result.data) {
-                // 获取当前已有消息数量
                 const currentMsgs = box.querySelectorAll('.msg:not(.system)').length;
-                const newMsgs = res.result.data.length;
-                if (newMsgs !== currentMsgs) {
-                    // 重新渲染
+                if (res.result.data.length !== currentMsgs) {
                     const systemMsg = box.querySelector('.msg.system');
                     const otherMsg = box.querySelector('.msg.other');
                     const systemText = systemMsg ? systemMsg.textContent : '🏔️ 来自 "' + currentRoom.creatorName + '" 的回声：';
@@ -530,19 +771,9 @@ function startPolling() {
                     });
                 }
             }
-        } catch(e) {
-            console.error("拉取新消息失败:", e);
-        }
+        } catch(e) { console.error("轮询失败:", e); }
     }, 3000);
 }
-
-// 页面可见性变化时清理轮询
-document.addEventListener('visibilitychange', function() {
-    if (document.hidden && pollingInterval) {
-        clearInterval(pollingInterval);
-        pollingInterval = null;
-    }
-});
 </script>
 </body>
 </html>
