@@ -132,20 +132,6 @@
             background: transparent;
             padding: 6px 0;
         }
-        /* 已读标记 */
-        .msg .read-status {
-            font-size: 10px;
-            opacity: 0.7;
-            margin-left: 8px;
-            display: inline-block;
-        }
-        .msg.mine .read-status {
-            color: rgba(255,255,255,0.8);
-        }
-        .msg.other .read-status {
-            color: var(--text-secondary);
-        }
-
         /* 底部导航 */
         .bottom-nav {
             position: fixed;
@@ -185,8 +171,6 @@
         .bottom-nav .nav-item .nav-label {
             font-size: 11px;
         }
-
-        /* VIP 样式 */
         .vip-badge {
             background: linear-gradient(135deg, #F5A623, #F7C948);
             color: white;
@@ -206,7 +190,6 @@
         .vip-plan .plan-name { font-weight: 600; }
         .vip-plan .plan-price { color: var(--primary); font-weight: 700; }
         .vip-plan .btn-buy { width: auto; padding: 6px 20px; font-size: 14px; }
-
         .page-content { padding-bottom: 20px; }
     </style>
 </head>
@@ -238,7 +221,6 @@
     <!-- 主应用 -->
     <div id="page-main" class="hidden">
         <div class="download-bar"><div><strong>📱 回声 App</strong><span style="font-size:13px;opacity:0.9;">更快更稳定</span></div><a href="#">下载</a></div>
-        
         <div class="page-content">
             <!-- 首页 -->
             <div id="tab-home" class="tab-page">
@@ -251,7 +233,6 @@
                     </div>
                     <button class="btn btn-primary" onclick="enterRoomFromHome()">侧耳倾听</button>
                 </div>
-
                 <div class="card">
                     <h3 style="margin-bottom:12px;">📡 喊出你的话</h3>
                     <div class="input-group"><span class="icon">📞</span><input id="target-phone" placeholder="对方手机号"></div>
@@ -285,14 +266,12 @@
                         <p style="margin-top:6px;"><strong>VIP状态</strong> <span id="profile-vip-status">非VIP</span></p>
                     </div>
                 </div>
-
                 <div class="card">
                     <h4 style="margin-bottom:12px;">🔒 修改密码</h4>
                     <div class="input-group"><span class="icon">🔑</span><input type="password" id="old-password" placeholder="原密码"></div>
                     <div class="input-group"><span class="icon">🔒</span><input type="password" id="new-password" placeholder="新密码(6位以上)"></div>
                     <button class="btn btn-primary" onclick="changePassword()">确认修改</button>
                 </div>
-
                 <div class="card">
                     <h4 style="margin-bottom:12px;">💎 开通VIP</h4>
                     <div class="vip-plan">
@@ -314,7 +293,6 @@
                 </div>
             </div>
         </div>
-
         <button class="btn btn-outline" style="margin-top:8px;" onclick="logout()">退出登录</button>
     </div>
 
@@ -730,8 +708,16 @@ function addMsg(type, text) {
     const box = document.getElementById('chat-box-join');
     const div = document.createElement('div');
     div.className = 'msg ' + type;
-    const readMark = ' ✓';
-    div.innerHTML = `<span>${text}</span><span class="read-status">${readMark}</span>`;
+    let markHtml = '';
+    if (type === 'mine') {
+        // 自己的消息：一个灰色对号（发送成功）
+        markHtml = '<span style="color:#aaa;font-size:12px;margin-left:6px;">✓</span>';
+    } else if (type === 'other') {
+        // 对方的消息：两个绿色对号（已读）
+        markHtml = '<span style="color:#4CAF50;font-size:12px;margin-left:6px;">✓✓</span>';
+    }
+    // system 类型不添加标记
+    div.innerHTML = `<span>${text}</span>${markHtml}`;
     box.appendChild(div);
     box.scrollTop = box.scrollHeight;
 }
