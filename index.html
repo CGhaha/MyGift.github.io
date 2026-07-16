@@ -170,22 +170,20 @@ let currentUser = null, currentRoom = null, pollingInterval = null;
 // ================= 程序入口 =================
 window.onload = function() {
     if (typeof cloudbase === 'undefined') {
-        document.body.innerHTML = '<div style="text-align:center;padding:40px;color:red;"><h3>SDK加载失败！</h3><p>请确保 <b>cloudbase.full.3.6.2.js</b> 文件与本 HTML 文件在同一目录下并正确上传。</p></div>';
+        document.body.innerHTML = '<div style="text-align:center;padding:40px;color:red;"><h3>依赖加载失败！</h3><p>请确保 <b>cloudbase.full.3.6.2.js</b> 文件存在并已上传到相同目录。</p></div>';
         return;
     }
 
     app = cloudbase.init({ env: ENV_ID });
-    
-    // 初始化匿名登录状态，保障能安全调用云函数
     auth = app.auth({ persistence: "local" });
     db = app.database();
 
-    // 自动触发匿名登录
+    // 启用安全通道匿名登录，不占用正式账号，但赋予调用云函数 dbApi 的必要权限
     if (!auth.hasLoginState()) {
-        auth.anonymousAuthProvider().signIn().catch(err => console.error("匿名登录失败:", err));
+        auth.anonymousAuthProvider().signIn().catch(err => console.error("初始化匿名鉴权失败:", err));
     }
 
-    // 解析口令参数
+    // 解析分享口令参数
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
     
@@ -194,6 +192,7 @@ window.onload = function() {
         document.getElementById('join-passcode').value = code;
         joinRoom();
     } else {
+        // 自定义 local 用户态读取
         const savedUser = localStorage.getItem('echo_user');
         if (savedUser) {
             currentUser = JSON.parse(savedUser);
@@ -217,7 +216,7 @@ function switchTab(t) {
     document.getElementById('form-register').classList.toggle('hidden', t!=='register');
 }
 
-// ================= 登录：调用云函数直读 users 数据库表 =================
+// ================= 自定义登录：直接通过 dbApi 校验数据库 users 集合 =================
 async function handleLogin() {
     const phone = document.getElementById('login-phone').value.trim();
     const pw = document.getElementById('login-password').value.trim();
@@ -237,11 +236,11 @@ async function handleLogin() {
         localStorage.setItem('echo_user', JSON.stringify(currentUser));
         afterLogin();
     } catch(e) { 
-        alert('登录失败: ' + e.message); 
+        alert('登录失败: ' + (e.message || '网络连接超时')); 
     }
 }
 
-// ================= 注册：调用云函数直写 users 数据库表 =================
+// ================= 自定义注册：直接写入 users 集合 =================
 async function handleRegister() {
     const phone = document.getElementById('reg-phone').value.trim();
     const pw = document.getElementById('reg-password').value.trim();
@@ -251,7 +250,7 @@ async function handleRegister() {
         const btn = document.querySelector('#form-register .btn');
         btn.disabled = true; btn.textContent = '正在注册...';
 
-        // 1. 校验是否被注册
+        // 1. 检查该手机号是否已存在
         const checkRes = await app.callFunction({
             name: 'dbApi',
             data: { action: 'query', collection: 'users', filter: { phone: phone } }
@@ -263,7 +262,7 @@ async function handleRegister() {
             return;
         }
 
-        // 2. 直接向 users 写入数据
+        // 2. 写入数据库 users 表
         await app.callFunction({
             name: 'dbApi',
             data: { 
@@ -273,12 +272,12 @@ async function handleRegister() {
             }
         });
 
-        alert('注册成功！正在为您登入...');
+        alert('创建成功！已为您自动登录');
         currentUser = { uid: phone, phone: phone };
         localStorage.setItem('echo_user', JSON.stringify(currentUser));
         afterLogin();
     } catch(e) { 
-        alert('注册失败: ' + (e.message || '网络通讯异常，请确认已在后台添加安全域名')); 
+        alert('注册失败: ' + (e.message || '可能未在后台配置跨域白名单')); 
     } finally {
         const btn = document.querySelector('#form-register .btn');
         btn.disabled = false; btn.textContent = '创建账号';
@@ -383,7 +382,7 @@ function addMsg(type, text) {
     box.scrollTop = box.scrollHeight;
 }
 
-// ================= 发送新消息 =================
+// ================= 访客回应消息 =================
 async function sendJoinMsg() {
     if (!currentRoom) return;
     const text = document.getElementById('join-message').value.trim();
@@ -404,7 +403,7 @@ async function sendJoinMsg() {
     }
 }
 
-// 开启轮询同步聊天消息
+// 自动拉取最新回复轮询
 function startPolling() {
     if (pollingInterval) clearInterval(pollingInterval);
     pollingInterval = setInterval(async () => {
