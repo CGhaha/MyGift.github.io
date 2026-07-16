@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>回声后台管理</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #F4F6FB;
+            padding: 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        .login-box { max-width: 400px; margin: 100px auto; }
+        .input-group { margin-bottom: 16px; }
+        .input-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1.5px solid #E8ECF4;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .btn-primary { background: #5B6ABF; color: white; }
+        .btn-danger { background: #E06C75; color: white; }
+        .btn-success { background: #4CAF50; color: white; }
+        .btn-sm { padding: 6px 12px; font-size: 14px; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        th, td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #E8ECF4;
+            text-align: left;
+        }
+        th { background: #F4F6FB; }
+        .hidden { display: none; }
+        .tab-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .tab-btn {
+            padding: 8px 20px;
+            border: none;
+            background: #E8ECF4;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .tab-btn.active {
+            background: #5B6ABF;
+            color: white;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            background: #E8ECF4;
+        }
+        .badge-vip { background: #F5A623; color: white; }
+    </style>
+</head>
+<body>
+<div class="container" id="app">
+    <!-- 登录 -->
+    <div id="login-section">
+        <div class="card login-box">
+            <h2 style="text-align:center;margin-bottom:20px;">🔐 后台管理登录</h2>
+            <div class="input-group">
+                <input type="password" id="admin-key-input" placeholder="请输入管理密钥">
+            </div>
+            <button class="btn btn-primary" onclick="login()">登录</button>
+            <p id="login-error" style="color:red;margin-top:8px;"></p>
+        </div>
+    </div>
+
+    <!-- 管理面板 -->
+    <div id="admin-panel" class="hidden">
+        <h1>📊 回声后台管理</h1>
+        <div class="tab-bar">
+            <button class="tab-btn active" data-tab="users" onclick="switchTab('users')">👥 用户管理</button>
+            <button class="tab-btn" data-tab="rooms" onclick="switchTab('rooms')">📡 回声记录</button>
+            <button class="tab-btn" data-tab="outbox" onclick="switchTab('outbox')">📨 短信队列</button>
+        </div>
+
+        <!-- 用户列表 -->
+        <div id="tab-users" class="tab-content card">
+            <h3>注册用户</h3>
+            <div id="users-table"></div>
+        </div>
+
+        <!-- 回声列表 -->
+        <div id="tab-rooms" class="tab-content card hidden">
+            <h3>所有回声</h3>
+            <div id="rooms-table"></div>
+        </div>
+
+        <!-- 短信队列 -->
+        <div id="tab-outbox" class="tab-content card hidden">
+            <h3>待发送短信</h3>
+            <div id="outbox-table"></div>
+        </div>
+    </div>
+</div>
+
+<script src="cloudbase.full.3.6.2.js"></script>
+<script>
+    const ENV_ID = 'echo-d1ggxqxb47c1224f7'; // 请替换为您的环境ID
+    const ADMIN_KEY = 'your_admin_key_2026'; // 必须与云函数中的密钥一致
+
+    let app, auth, db;
+    let currentTab = 'users';
+
+    function init() {
+        if (typeof cloudbase === 'undefined') {
+            document.body.innerHTML = '<div style="color:red;">SDK加载失败</div>';
+            return;
+        }
+        app = cloudbase.init({ env: ENV_ID });
+        auth = app.auth({ persistence: "local" });
+        db = app.database();
+        // 匿名登录（以便调用云函数）
+        if (!auth.hasLoginState()) {
+            auth.anonymousAuthProvider().signIn().catch(console.error);
+        }
+    }
+
+    function login() {
+        const key = document.getElementById('admin-key-input').value.trim();
+        if (!key) {
+            document.getElementById('login-error').textContent = '请输入管理密钥';
+            return;
+        }
+        if (key !== ADMIN_KEY) {
+            document.getElementById('login-error').textContent = '密钥错误';
+            return;
+        }
+        document.getElementById('login-section').classList.add('hidden');
+        document.getElementById('admin-panel').classList.remove('hidden');
+        loadData('users');
+    }
+
+    function switchTab(tab) {
+        currentTab = tab;
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelector(`.tab-btn[data-tab="${tab}"]`).classList.add('active');
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+        document.getElementById('tab-' + tab).classList.remove('hidden');
+        loadData(tab);
+    }
+
+    async function loadData(tab) {
+        const container = document.getElementById(tab + '-table');
+        container.innerHTML = '加载中...';
+        try {
+            let action, dataKey;
+            if (tab === 'users') {
+                action = 'listUsers';
+                dataKey = 'users';
+            } else if (tab === 'rooms') {
+                action = 'listRooms';
+                dataKey = 'rooms';
+            } else if (tab === 'outbox') {
+                action = 'listOutbox';
+                dataKey = 'outbox';
+            }
+            const res = await app.callFunction({
+                name: 'adminApi',
+                data: { action, adminKey: ADMIN_KEY }
+            });
+            if (res.result.code !== 0) {
+                container.innerHTML = `<p style="color:red;">加载失败: ${res.result.msg}</p>`;
+                return;
+            }
+            const data = res.result.data || [];
+            renderTable(tab, data);
+        } catch (e) {
+            container.innerHTML = `<p style="color:red;">请求失败: ${e.message}</p>`;
+        }
+    }
+
+    function renderTable(tab, data) {
+        const container = document.getElementById(tab + '-table');
+        if (!data.length) {
+            container.innerHTML = '<p>暂无数据</p>';
+            return;
+        }
+        let html = '<table><thead><tr>';
+        if (tab === 'users') {
+            html += '<th>手机号</th><th>注册时间</th><th>VIP状态</th><th>VIP到期</th><th>操作</th>';
+        } else if (tab === 'rooms') {
+            html += '<th>口令</th><th>发送者</th><th>目标手机</th><th>内容</th><th>状态</th><th>创建时间</th>';
+        } else if (tab === 'outbox') {
+            html += '<th>目标手机</th><th>短信内容</th><th>状态</th><th>创建时间</th><th>操作</th>';
+        }
+        html += '</tr></thead><tbody>';
+
+        data.forEach(item => {
+            html += '<tr>';
+            if (tab === 'users') {
+                const vip = item.vip ? '✅ VIP' : '❌ 非VIP';
+                const expire = item.vipExpire ? new Date(item.vipExpire).toLocaleDateString() : '-';
+                html += `<td>${item.phone}</td>`;
+                html += `<td>${item.createdAt ? new Date(item.createdAt).toLocaleString() : '-'}</td>`;
+                html += `<td>${vip}</td>`;
+                html += `<td>${expire}</td>`;
+                html += `<td>
+                            <button class="btn btn-danger btn-sm" onclick="deleteUser('${item.phone}')">删除</button>
+                            <button class="btn btn-primary btn-sm" onclick="changePassword('${item.phone}')">改密</button>
+                        </td>`;
+            } else if (tab === 'rooms') {
+                const status = item.status === 'replied' ? '🟢已回复' : '⏳等待';
+                html += `<td>${item.passcode}</td>`;
+                html += `<td>${item.creatorName || item.creatorId}</td>`;
+                html += `<td>${item.targetPhone || '-'}</td>`;
+                html += `<td>${(item.initialMessage || '').substring(0, 30)}${item.initialMessage && item.initialMessage.length > 30 ? '...' : ''}</td>`;
+                html += `<td>${status}</td>`;
+                html += `<td>${item.createdAt ? new Date(item.createdAt).toLocaleString() : '-'}</td>`;
+            } else if (tab === 'outbox') {
+                const status = item.status === 'sent' ? '✅已发送' : '⏳待发送';
+                html += `<td>${item.phone}</td>`;
+                html += `<td>${(item.text || '').substring(0, 40)}${item.text && item.text.length > 40 ? '...' : ''}</td>`;
+                html += `<td>${status}</td>`;
+                html += `<td>${item.createdAt ? new Date(item.createdAt).toLocaleString() : '-'}</td>`;
+                html += `<td>${item.status !== 'sent' ? `<button class="btn btn-success btn-sm" onclick="markSent('${item._id}')">标记已发送</button>` : '-'}</td>`;
+            }
+            html += '</tr>';
+        });
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    }
+
+    // ---------- 用户操作 ----------
+    async function deleteUser(phone) {
+        if (!confirm(`确定要删除用户 ${phone} 吗？此操作不可恢复！`)) return;
+        try {
+            const res = await app.callFunction({
+                name: 'adminApi',
+                data: { action: 'deleteUser', adminKey: ADMIN_KEY, filter: { phone } }
+            });
+            if (res.result.code === 0) {
+                alert('删除成功');
+                loadData('users');
+            } else {
+                alert('删除失败: ' + res.result.msg);
+            }
+        } catch (e) {
+            alert('请求失败: ' + e.message);
+        }
+    }
+
+    async function changePassword(phone) {
+        const newPw = prompt(`请输入 ${phone} 的新密码（至少6位）`);
+        if (!newPw || newPw.length < 6) {
+            alert('密码至少6位');
+            return;
+        }
+        try {
+            const res = await app.callFunction({
+                name: 'adminApi',
+                data: { action: 'updatePassword', adminKey: ADMIN_KEY, data: { phone, newPassword: newPw } }
+            });
+            if (res.result.code === 0) {
+                alert('密码修改成功');
+            } else {
+                alert('修改失败: ' + res.result.msg);
+            }
+        } catch (e) {
+            alert('请求失败: ' + e.message);
+        }
+    }
+
+    // ---------- 短信操作 ----------
+    async function markSent(id) {
+        if (!confirm('确认标记此短信为已发送？')) return;
+        try {
+            const res = await app.callFunction({
+                name: 'adminApi',
+                data: { action: 'markOutboxSent', adminKey: ADMIN_KEY, data: { id } }
+            });
+            if (res.result.code === 0) {
+                alert('标记成功');
+                loadData('outbox');
+            } else {
+                alert('标记失败: ' + res.result.msg);
+            }
+        } catch (e) {
+            alert('请求失败: ' + e.message);
+        }
+    }
+
+    // 初始化
+    init();
+</script>
+</body>
+</html>
