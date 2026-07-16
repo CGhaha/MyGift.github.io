@@ -134,7 +134,7 @@
             <span style="font-size:40px;">✅</span>
             <h3>回声已发出</h3>
             <p style="color:var(--text-secondary);">对方将收到短信，内含回音口令</p>
-            <div style="background:var(--primary-light);padding:12px;border-radius:12px;font-size:22px;color:var(--primary);font-weight:600; margin-top: 10px;" id="result-passcode"></div>
+            <div style="background:var(--primary-light);padding:12px;border-radius:12px;font-size:22px;color:var(--primary);font-weight:600; margin-top:10px;" id="result-passcode"></div>
         </div>
         <div class="card"><h3 style="margin-bottom:8px;">📂 我发出的回声</h3><div id="room-list">加载中...</div></div>
         <button class="btn" style="background:transparent;color:var(--primary);border:1.5px solid var(--primary);margin-top:16px;" onclick="logout()">退出</button>
@@ -160,32 +160,62 @@
     </div>
 </div>
 
-<script src="https://imgcache.qq.com/qcloud/cloudbase-js-sdk/1.6.2/cloudbase.full.js"></script>
 <script>
 const ENV_ID = 'echo-d1ggxqxb47c1224f7';
 let app, auth, db;
 let currentUser = null, currentRoom = null, pollingInterval = null;
 
-window.onload = function() {
-    if (typeof cloudbase === 'undefined') {
-        document.body.innerHTML = '<div style="text-align:center;padding:40px;">SDK加载失败，请确保网络正常或 CDN 正常加载</div>';
+// ================= SDK 智能容灾加载机制 =================
+function loadSDK() {
+    return new Promise((resolve) => {
+        const localScript = document.createElement('script');
+        localScript.src = 'cloudbase.full.3.6.2.js';
+        
+        localScript.onload = () => {
+            console.log('成功载入本地依赖: cloudbase.full.3.6.2.js');
+            resolve(true);
+        };
+        
+        localScript.onerror = () => {
+            console.warn('本地 JS 载入失败，自动切换至腾讯云官方 CDN...');
+            const cdnScript = document.createElement('script');
+            cdnScript.src = 'https://imgcache.qq.com/qcloud/cloudbase-js-sdk/1.6.2/cloudbase.full.js';
+            
+            cdnScript.onload = () => {
+                console.log('官方 CDN 加载成功！');
+                resolve(true);
+            };
+            cdnScript.onerror = () => {
+                console.error('SDK 加载彻底失败，请检查网络');
+                resolve(false);
+            };
+            document.head.appendChild(cdnScript);
+        };
+        document.head.appendChild(localScript);
+    });
+}
+
+// ================= 程序入口 =================
+window.onload = async function() {
+    const isLoaded = await loadSDK();
+    if (!isLoaded || typeof cloudbase === 'undefined') {
+        document.body.innerHTML = '<div style="text-align:center;padding:40px;color:red;"><h3>运行库载入失败</h3><p>请确保本地有 cloudbase.full.3.6.2.js 或网络畅通。</p></div>';
         return;
     }
+
     app = cloudbase.init({ env: ENV_ID });
-    auth = app.auth({ persistence: "local" }); // 持久化登录
+    auth = app.auth({ persistence: "local" });
     db = app.database();
 
-    // 解析 URL 参数，如果是通过口令卡片链接直接进来的访客端
+    // 检查是否通过口令链接直接访问
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
     
-    // 如果带了 ?code=口令 参数，直接进入倾听页面
     if (code) {
         showPage('page-join');
         document.getElementById('join-passcode').value = code;
         joinRoom();
     } else {
-        // 否则检测是否已登录
         const savedUser = localStorage.getItem('echo_user');
         if (savedUser) {
             currentUser = JSON.parse(savedUser);
@@ -209,7 +239,7 @@ function switchTab(t) {
     document.getElementById('form-register').classList.toggle('hidden', t!=='register');
 }
 
-// 基于 dbApi 模拟登录
+// 通过云函数直接校验登录
 async function handleLogin() {
     const phone = document.getElementById('login-phone').value.trim();
     const pw = document.getElementById('login-password').value.trim();
@@ -223,7 +253,6 @@ async function handleLogin() {
         if (!res.result.data || res.result.data.length === 0) {
             return alert('手机号或密码错误');
         }
-        // 保存用户信息
         currentUser = { uid: phone, phone: phone };
         localStorage.setItem('echo_user', JSON.stringify(currentUser));
         afterLogin();
@@ -232,7 +261,7 @@ async function handleLogin() {
     }
 }
 
-// 基于 dbApi 模拟注册
+// 通过云函数直接注册写入
 async function handleRegister() {
     const phone = document.getElementById('reg-phone').value.trim();
     const pw = document.getElementById('reg-password').value.trim();
@@ -240,26 +269,24 @@ async function handleRegister() {
     
     try {
         const btn = document.querySelector('#form-register .btn');
-        btn.disabled = true; btn.textContent = '正在创建...';
+        btn.disabled = true; btn.textContent = '正在注册...';
 
-        // 1. 查重
         const checkRes = await app.callFunction({
             name: 'dbApi',
             data: { action: 'query', collection: 'users', filter: { phone: phone } }
         });
         if (checkRes.result.data && checkRes.result.data.length > 0) {
-            alert('该手机号已被注册，请直接登录');
+            alert('该手机号已注册，请直接登录');
             switchTab('login');
             return;
         }
 
-        // 2. 写入数据库
         await app.callFunction({
             name: 'dbApi',
             data: { action: 'add', collection: 'users', data: { phone: phone, password: pw, createdAt: Date.now() } }
         });
 
-        alert('账号注册成功，已自动登录！');
+        alert('账号创建成功，已为您自动登录！');
         currentUser = { uid: phone, phone: phone };
         localStorage.setItem('echo_user', JSON.stringify(currentUser));
         afterLogin();
@@ -278,139 +305,3 @@ function afterLogin() {
 
 function logout() {
     currentUser = null;
-    localStorage.removeItem('echo_user');
-    showPage('page-auth');
-}
-
-async function createRoom() {
-    if (!currentUser) return alert('请先登录');
-    const phone = document.getElementById('target-phone').value.trim();
-    const name = document.getElementById('your-name').value.trim();
-    const content = document.getElementById('message-content').value.trim();
-    if (!phone || !name || !content) return alert('请完整填写');
-
-    const nouns = ['空谷','松涛','晚钟','风铃','潮汐','山泉','竹林','夜莺','鲸歌','风笛'];
-    const adjs = ['悠长的','遥远的','轻柔的','清澈的','温暖的','寂静的','微弱的','坚定的'];
-    const passcode = nouns[Math.floor(Math.random()*10)] + '-' + adjs[Math.floor(Math.random()*8)] + '-' + Math.floor(Math.random()*900+100);
-    
-    // 生成带跳转参数的口令卡链接
-    const joinLink = window.location.origin + window.location.pathname + '?code=' + encodeURIComponent(passcode);
-    const smsText = name + ' 给你留下一声回声："' + content + '"。倾听请点击 ' + joinLink + ' 或输入口令：' + passcode + ' 。退订回T';
-
-    const btn = document.getElementById('send-btn');
-    btn.disabled = true; btn.textContent = '正在排队...';
-    try {
-        await app.callFunction({
-            name: 'dbApi',
-            data: { action: 'add', collection: 'rooms', data: { passcode, creatorId: currentUser.uid, targetPhone: phone, creatorName: name, initialMessage: content, status: 'pending', createdAt: Date.now() } }
-        });
-        await app.callFunction({
-            name: 'dbApi',
-            data: { action: 'add', collection: 'outbox', data: { phone, text: smsText, status: 'pending', createdAt: Date.now() } }
-        });
-        document.getElementById('result-passcode').textContent = passcode;
-        document.getElementById('result-card').classList.remove('hidden');
-        loadMyRooms();
-    } catch(e) { alert('操作失败: ' + e.message); }
-    finally { btn.disabled = false; btn.textContent = '📡 发出回声'; }
-}
-
-async function loadMyRooms() {
-    if (!currentUser) return;
-    try {
-        const res = await app.callFunction({
-            name: 'dbApi',
-            data: { action: 'query', collection: 'rooms', filter: { creatorId: currentUser.uid }, order: ['createdAt','desc'] }
-        });
-        const list = document.getElementById('room-list');
-        if (!res.result.data || res.result.data.length === 0) {
-            list.innerHTML = '<p style="color:var(--text-secondary);text-align:center;">暂无回声</p>';
-            return;
-        }
-        list.innerHTML = res.result.data.map(r => {
-            return `<div class="room-item"><div><strong>${r.targetPhone}</strong><span style="color:var(--text-secondary);font-size:13px;"> · ${r.status==='replied'?'🟢已回复':'⏳等待中'}</span></div><span class="room-passcode">${r.passcode}</span></div>`;
-        }).join('');
-    } catch (e) {
-        console.error("加载房间列表失败:", e);
-    }
-}
-
-async function joinRoom() {
-    const pc = document.getElementById('join-passcode').value.trim();
-    if (!pc) return;
-    try {
-        const res = await app.callFunction({
-            name: 'dbApi',
-            data: { action: 'query', collection: 'rooms', filter: { passcode: pc }, limit: 1 }
-        });
-        if (!res.result.data || res.result.data.length === 0) {
-            document.getElementById('join-error').textContent = '口令错误';
-            return;
-        }
-        currentRoom = res.result.data[0];
-        document.getElementById('page-join').querySelector('.card').classList.add('hidden');
-        document.getElementById('chat-join').classList.remove('hidden');
-        const box = document.getElementById('chat-box-join'); box.innerHTML = '';
-        addMsg('system', '"' + currentRoom.creatorName + '" 的回声：');
-        addMsg('other', currentRoom.initialMessage);
-        startPolling();
-    } catch(e) {
-        document.getElementById('join-error').textContent = '查询出错: ' + e.message;
-    }
-}
-
-function addMsg(type, text) {
-    const box = document.getElementById('chat-box-join');
-    const div = document.createElement('div');
-    div.className = 'msg ' + type;
-    div.textContent = text;
-    box.appendChild(div);
-    box.scrollTop = box.scrollHeight;
-}
-
-async function sendJoinMsg() {
-    if (!currentRoom) return;
-    const text = document.getElementById('join-message').value.trim();
-    if (!text) return;
-    try {
-        await app.callFunction({
-            name: 'dbApi',
-            data: { action: 'add', collection: 'messages', data: { roomId: currentRoom._id, senderType: 'guest', senderName: '匿名', content: text, createdAt: Date.now() } }
-        });
-        addMsg('mine', text);
-        document.getElementById('join-message').value = '';
-        await app.callFunction({
-            name: 'dbApi',
-            data: { action: 'update', collection: 'rooms', filter: { _id: currentRoom._id }, data: { status: 'replied' } }
-        });
-    } catch(e) {
-        alert("发送失败: " + e.message);
-    }
-}
-
-function startPolling() {
-    if (pollingInterval) clearInterval(pollingInterval);
-    pollingInterval = setInterval(async () => {
-        if (!currentRoom) return;
-        try {
-            const res = await app.callFunction({
-                name: 'dbApi',
-                data: { action: 'query', collection: 'messages', filter: { roomId: currentRoom._id }, order: ['createdAt','asc'], limit: 30 }
-            });
-            const box = document.getElementById('chat-box-join'); 
-            box.innerHTML = '';
-            // 重新添加系统初始信息和寄信者初始信件
-            addMsg('system', '"' + currentRoom.creatorName + '" 的回声：');
-            addMsg('other', currentRoom.initialMessage);
-            
-            if (res.result.data) {
-                res.result.data.forEach(m => addMsg(m.senderType==='guest'?'mine':'other', m.content));
-            }
-        } catch(e) {
-            console.error("拉取新回复失败:", e);
-        }
-    }, 3000);
-}
-</script>
-</body>
-</html>
